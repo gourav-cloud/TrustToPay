@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 214 25% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 20% 94%;
+    --secondary-foreground: 222 30% 20%;
+    --muted: 214 20% 95%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 214 90% 96%;
+    --accent-foreground: 221 70% 35%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 20% 88%;
+    --input: 214 20% 86%;
+    --ring: 221 83% 53%;
+    --radius: 0.65rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.16);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .surface-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.55) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.55) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .prose-docs h2 {
+    @apply mt-10 mb-3 text-xl font-semibold tracking-tight;
+  }
+  .prose-docs h3 {
+    @apply mt-6 mb-2 text-base font-semibold;
+  }
+  .prose-docs p {
+    @apply mb-3 text-sm leading-6 text-muted-foreground;
+  }
+  .prose-docs ul {
+    @apply mb-4 list-disc space-y-1 pl-5 text-sm leading-6 text-muted-foreground;
+  }
+  .prose-docs ol {
+    @apply mb-4 list-decimal space-y-1 pl-5 text-sm leading-6 text-muted-foreground;
+  }
+  .prose-docs code {
+    @apply rounded bg-muted px-1 py-0.5 font-mono text-[0.8em] text-foreground;
+  }
+  .prose-docs a {
+    @apply text-primary underline underline-offset-2;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+}

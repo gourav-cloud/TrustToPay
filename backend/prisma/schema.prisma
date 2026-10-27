@@ -1,0 +1,354 @@
+// TrustToPay data model.
+// SQLite is used for zero-config local development. All Prisma queries used by
+// the app are portable to PostgreSQL; only the datasource provider and the
+// Json-as-String convention differ. Money is stored as integer minor units.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  name                String
+  passwordHash        String
+  role                String   @default("REQUESTER") // REQUESTER | REVIEWER | ADMIN
+  isActive            Boolean  @default(true)
+  isReviewerApproved  Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  profile            UserProfile?
+  skills             ReviewerSkill[]
+  sessions           AgentSession[]
+  requestedTasks     ReviewTask[]       @relation("RequesterTasks")
+  assignments        TaskAssignment[]
+  submissions        ReviewSubmission[]
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+  disputesOpened     Dispute[]          @relation("DisputeOpenedBy")
+  rewardsApproved    Reward[]           @relation("RewardApprovedBy")
+  verificationRuns   VerificationRun[]  @relation("ManualVerifier")
+  taskEvents         TaskEvent[]
+
+  @@index([role])
+}
+
+model UserProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  headline       String?
+  bio            String?
+  timezone       String   @default("UTC")
+  payoutProvider String   @default("PAYPAL")
+  payoutEmail    String?
+  payoutConsent  Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReviewerSkill {
+  id       String   @id @default(cuid())
+  userId   String
+  category String   @default("USB_C_HARDWARE")
+  name     String
+  level    Int      @default(3)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([category])
+}
+
+model AgentSession {
+  id                  String   @id @default(cuid())
+  userId              String
+  title               String
+  question            String
+  category            String   @default("CONCEPTUAL") // PROGRAMMING | CRYPTO | CONCEPTUAL | HARDWARE
+  productModelsJson   String   @default("[]")
+  specificationsJson  String   @default("[]")
+  status              String   @default("DRAFT") // DRAFT | ANALYSIS_COMPLETE | ESCALATION_REQUIRED | AWAITING_INFORMATION | TASK_CREATED | RESOLVED | CANCELLED
+  finalAnswer         String?
+  resolvedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysisRuns  AnalysisRun[]
+  evidence      EvidenceSource[]
+  tasks         ReviewTask[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model AnalysisRun {
+  id                 String   @id @default(cuid())
+  sessionId          String
+  engine             String   @default("demo") // demo | provider
+  provider           String   @default("demo")
+  model              String?
+  threshold          Float    @default(0.75)
+  outputJson         String
+  recommendedAction  String
+  confidenceScore    Float
+  durationMs         Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  session AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model EvidenceSource {
+  id         String   @id @default(cuid())
+  sessionId  String?
+  taskId     String?
+  title      String
+  url        String?
+  publisher  String?
+  sourceType String   @default("DOCUMENT") // MANUFACTURER | RETAILER | MARKETPLACE | FORUM | DOCUMENT
+  content    String
+  isSeed     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  session AgentSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  task    ReviewTask?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([taskId])
+}
+
+model ReviewTask {
+  id                     String    @id @default(cuid())
+  sessionId              String
+  requesterId            String
+  title                  String
+  question               String
+  category               String    @default("USB_C_COMPATIBILITY")
+  acceptanceCriteria     String
+  requiredSkillsJson     String    @default("[]")
+  status                 String    @default("AWAITING_FUNDING")
+  fundingModel           String    @default("PRE_FUNDED")
+  riskLevel              String    @default("STANDARD") // STANDARD | HIGH
+  rewardMinor            Int
+  currency               String    @default("USD")
+  dueAt                  DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  fundedAt               DateTime?
+  verifiedAt             DateTime?
+  completedAt            DateTime?
+  finalAnswer            String?
+  isSeed                 Boolean   @default(false)
+
+  session        AgentSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  requester      User             @relation("RequesterTasks", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignment     TaskAssignment?
+  submissions    ReviewSubmission[]
+  verificationRuns VerificationRun[]
+  reward         Reward?
+  payments       PaymentTransaction[]
+  events         TaskEvent[]
+  evidence       EvidenceSource[]
+  disputes       Dispute[]
+
+  @@index([status, createdAt])
+  @@index([requesterId])
+  @@index([sessionId])
+}
+
+model TaskAssignment {
+  id         String   @id @default(cuid())
+  taskId     String   @unique
+  reviewerId String
+  status     String   @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
+  acceptedAt DateTime @default(now())
+  completedAt DateTime?
+
+  task     ReviewTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewer User       @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([reviewerId, status])
+}
+
+model ReviewSubmission {
+  id              String   @id @default(cuid())
+  taskId          String
+  reviewerId      String
+  answer          String
+  explanation     String
+  confidenceScore Int      @default(70) // reviewer self-assessment 0-100, not calibrated
+  sourceUrl       String?
+  evidenceNotes   String?
+  status          String   @default("SUBMITTED") // SUBMITTED | ACCEPTED | REJECTED
+  isSeed          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  task           ReviewTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewer       User            @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  verificationRuns VerificationRun[]
+
+  @@index([taskId, createdAt])
+  @@index([reviewerId])
+}
+
+model VerificationRun {
+  id                    String   @id @default(cuid())
+  taskId                String
+  submissionId          String
+  status                String   // PASSED | REJECTED | NEEDS_MANUAL_REVIEW
+  decisionReason        String
+  checksPassedJson      String   @default("[]")
+  checksFailedJson      String   @default("[]")
+  evidenceReferencesJson String  @default("[]")
+  requiresAdminReview   Boolean  @default(false)
+  engine                String   @default("AUTOMATED") // AUTOMATED | MANUAL
+  verifierId            String?
+  createdAt             DateTime @default(now())
+
+  task       ReviewTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  submission ReviewSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  verifier   User?            @relation("ManualVerifier", fields: [verifierId], references: [id])
+
+  @@index([taskId, createdAt])
+}
+
+model Reward {
+  id              String    @id @default(cuid())
+  taskId          String    @unique
+  amountMinor     Int
+  currency        String    @default("USD")
+  status          String    @default("PENDING") // PENDING | FUNDED | AUTHORIZED | PROCESSING | PAID | FAILED | CANCELLED
+  approvedById    String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  task       ReviewTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  approvedBy User?      @relation("RewardApprovedBy", fields: [approvedById], references: [id])
+  payments   PaymentTransaction[]
+
+  @@index([status])
+}
+
+model PaymentTransaction {
+  id               String    @id @default(cuid())
+  taskId           String
+  rewardId         String?
+  type             String    // FUNDING | PAYOUT
+  provider         String    // DEMO | PAYPAL_SANDBOX
+  mode             String    // SIMULATED | SANDBOX
+  status           String    @default("CREATED") // CREATED | APPROVED | PROCESSING | COMPLETED | PENDING | FAILED | CANCELLED | UNAVAILABLE
+  amountMinor      Int
+  currency         String    @default("USD")
+  orderId          String?
+  captureId        String?
+  payoutBatchId    String?
+  payoutItemId     String?
+  idempotencyKey   String    @unique
+  recipientEmail   String?
+  description      String
+  failureCode      String?
+  failureMessage   String?
+  safePayloadJson  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  capturedAt       DateTime?
+  paidAt           DateTime?
+
+  task   ReviewTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reward Reward?    @relation(fields: [rewardId], references: [id])
+
+  @@index([taskId, type])
+  @@index([status])
+  @@index([orderId])
+  @@index([payoutBatchId])
+}
+
+model PaymentWebhookEvent {
+  id           String    @id @default(cuid())
+  provider     String    @default("PAYPAL")
+  eventId      String    @unique
+  eventType    String
+  resourceType String?
+  resourceId   String?
+  verified     Boolean   @default(false)
+  status       String    @default("RECEIVED") // RECEIVED | PROCESSED | IGNORED | FAILED
+  payloadJson  String
+  error        String?
+  receivedAt   DateTime  @default(now())
+  processedAt  DateTime?
+}
+
+model TaskEvent {
+  id           String   @id @default(cuid())
+  taskId       String
+  type         String
+  message      String
+  actorId      String?
+  metadataJson String?
+  createdAt    DateTime @default(now())
+
+  task  ReviewTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor User?      @relation(fields: [actorId], references: [id])
+
+  @@index([taskId, createdAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String?
+  action       String
+  entityType   String
+  entityId     String
+  metadataJson String?
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model Dispute {
+  id            String    @id @default(cuid())
+  taskId        String
+  openedById    String
+  reason        String
+  status        String    @default("OPEN") // OPEN | RESOLVED | REJECTED
+  resolution    String?
+  createdAt     DateTime  @default(now())
+  resolvedAt    DateTime?
+
+  task     ReviewTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  openedBy User       @relation("DisputeOpenedBy", fields: [openedById], references: [id])
+
+  @@index([taskId, status])
+}

@@ -1,0 +1,40 @@
+node_modules/
+dist/
+dist-ssr/
+build/
+coverage/
+*.tsbuildinfo
+*.local
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+
+# Databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+backend/prisma/dev.db
+backend/prisma/test.db
+backend/prisma/test-*.db
+
+# Test artifacts
+playwright-report/
+test-results/
+.vite/
+.turbo/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
