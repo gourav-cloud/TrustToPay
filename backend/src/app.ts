@@ -27,7 +27,7 @@ const frontendDist = path.resolve(here, "../../frontend/dist");
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
-  app.set("trust proxy", true);
+  app.set("trust proxy", config.trustProxy);
 
   app.use(securityHeaders());
   app.use(corsMiddleware());

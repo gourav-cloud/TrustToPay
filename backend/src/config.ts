@@ -64,6 +64,21 @@ export const config = {
   get databaseUrl(): string {
     return process.env.DATABASE_URL || "file:./dev.db";
   },
+  /**
+   * Express `trust proxy` setting. A hop count (default 1 in production) keeps
+   * req.ip and secure-cookie detection correct behind a load balancer without
+   * enabling the permissive boolean form that express-rate-limit rejects.
+   * Override with TRUST_PROXY=false|0|1|2|loopback.
+   */
+  get trustProxy(): boolean | number | string {
+    const raw = (process.env.TRUST_PROXY ?? "").trim();
+    if (raw === "") return this.isProduction ? 1 : false;
+    const lower = raw.toLowerCase();
+    if (lower === "false" || lower === "off" || lower === "0") return false;
+    if (lower === "true" || lower === "on") return 1;
+    if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10);
+    return raw;
+  },
   get sessionSecret(): string {
     const secret = process.env.SESSION_SECRET;
     if (secret && secret.length >= 32) return secret;

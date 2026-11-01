@@ -18,14 +18,17 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
-    port: 3000,
+    port: 5173,
+    strictPort: true,
+    // The API runs on :4000 by default (see the root .env / PORT). Override with
+    // VITE_API_PROXY_TARGET when the backend runs elsewhere.
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: process.env.VITE_API_PROXY_TARGET ?? "http://localhost:4000",
         changeOrigin: false,
       },
       "/health": {
-        target: "http://localhost:3000",
+        target: process.env.VITE_API_PROXY_TARGET ?? "http://localhost:4000",
         changeOrigin: false,
       },
     },
