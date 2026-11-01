@@ -73,7 +73,7 @@ export function Field({
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {hint && !error ? <p className="text-xs leading-5 text-muted-foreground">{hint}</p> : null}
-      {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
+      {error ? <p className="text-xs font-medium text-amber-400">{error}</p> : null}
     </div>
   );
 }

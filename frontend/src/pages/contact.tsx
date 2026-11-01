@@ -15,16 +15,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function ContactPage() {
   return (
-    <div className="min-h-dvh bg-[#080C14] text-[#F1F5F9]">
+    <div className="min-h-dvh bg-background text-foreground">
       <PublicHeader />
       <main className="container max-w-3xl py-12">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3B82F6]">
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
           Support &amp; Security Operations
         </p>
-        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-[#F1F5F9]">
+        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
           Operational diagnostics &amp; security disclosure
         </h1>
-        <p className="mt-2 text-sm leading-6 text-[#94A3B8]">
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           TrustToPay is a self-hosted developer infrastructure platform. Use the resources below to inspect live
           integration telemetry, troubleshoot environment configuration, and follow safe security disclosure practices.
         </p>
@@ -33,14 +33,14 @@ export default function ContactPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
-                <Terminal className="size-4 text-[#3B82F6]" /> Environment &amp; integration diagnostics
+                <Terminal className="size-4 text-primary" /> Environment &amp; integration diagnostics
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm leading-6 text-[#94A3B8]">
+            <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
               <p>
                 Start with the technical documentation and live integration status console. Most configuration issues
                 are caused by missing environment variables, a server process that needs a restart after updating{" "}
-                <code className="font-mono text-xs text-[#F1F5F9]">.env</code>, or unconfigured PayPal Sandbox
+                <code className="font-mono text-xs text-foreground">.env</code>, or unconfigured PayPal Sandbox
                 credentials.
               </p>
               <div className="flex flex-wrap gap-2">
@@ -61,14 +61,14 @@ export default function ContactPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
-                <Bug className="size-4 text-[#3B82F6]" /> Issue reporting guidelines
+                <Bug className="size-4 text-primary" /> Issue reporting guidelines
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm leading-6 text-[#94A3B8]">
+            <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
               <p>
                 When filing an engineering issue in your deployment repository, include the exact API route or CLI
-                command, the active payment mode (<code className="font-mono text-xs text-[#F1F5F9]">SIMULATED</code>{" "}
-                or <code className="font-mono text-xs text-[#F1F5F9]">SANDBOX</code>), and the structured error code.
+                command, the active payment mode (<code className="font-mono text-xs text-foreground">SIMULATED</code>{" "}
+                or <code className="font-mono text-xs text-foreground">SANDBOX</code>), and the structured error code.
                 Always redact session tokens, API keys, and PayPal client secrets before sharing logs.
               </p>
             </CardContent>
@@ -80,7 +80,7 @@ export default function ContactPage() {
                 <ShieldAlert className="size-4 text-amber-400" /> Security disclosure policy
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm leading-6 text-[#94A3B8]">
+            <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
               <p>
                 Never open a public issue containing active credentials, session tokens, or exploit payloads against a
                 hosted environment. Route vulnerability reports privately to the deployment operator with a minimal
@@ -98,7 +98,7 @@ export default function ContactPage() {
 
           <Card>
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div className="text-xs text-[#94A3B8]">
+              <div className="text-xs text-muted-foreground">
                 Ready to inspect the platform workflow or configure your workspace?
               </div>
               <div className="flex gap-2">

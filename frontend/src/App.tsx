@@ -95,45 +95,47 @@ export default function App() {
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <ScrollToHash />
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/how-it-works" element={<LandingPage />} />
-            <Route path="/developers" element={<LandingPage />} />
-            <Route path="/login" element={<AuthPage />} />
-            <Route path="/register" element={<AuthPage initialMode="register" />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/contact" element={<ContactPage />} />
+          <div className="paypal-theme">
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/how-it-works" element={<LandingPage />} />
+              <Route path="/developers" element={<LandingPage />} />
+              <Route path="/login" element={<AuthPage />} />
+              <Route path="/register" element={<AuthPage initialMode="register" />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/contact" element={<ContactPage />} />
 
-            <Route path="/app" element={<ProtectedOrPublicDocsShell />}>
-              <Route index element={<DashboardPage />} />
-              <Route path="workspace" element={<WorkspacePage />} />
-              <Route path="sessions/:id" element={<SessionDetailPage />} />
-              <Route path="marketplace" element={<TaskBrowserPage mode="marketplace" />} />
-              <Route path="reviews" element={<TaskBrowserPage mode="reviews" />} />
-              <Route path="requests" element={<TaskBrowserPage mode="requests" />} />
-              <Route path="tasks" element={<TaskBrowserPage mode="all" />} />
-              <Route path="tasks/:id" element={<TaskDetailPage />} />
-              <Route path="tasks/:id/verification" element={<VerificationCenterPage />} />
-              <Route path="tasks/:id/verify" element={<VerificationCenterPage />} />
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="earnings" element={<EarningsPage />} />
-              <Route path="profile" element={<ProfilePage />} />
-              <Route path="integrations" element={<IntegrationsPage />} />
-              <Route path="docs" element={<DocsPage />} />
-              <Route
-                path="admin"
-                element={
-                  <AdminRoute>
-                    <AdminPage />
-                  </AdminRoute>
-                }
-              />
-            </Route>
+              <Route path="/app" element={<ProtectedOrPublicDocsShell />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="workspace" element={<WorkspacePage />} />
+                <Route path="sessions/:id" element={<SessionDetailPage />} />
+                <Route path="marketplace" element={<TaskBrowserPage mode="marketplace" />} />
+                <Route path="reviews" element={<TaskBrowserPage mode="reviews" />} />
+                <Route path="requests" element={<TaskBrowserPage mode="requests" />} />
+                <Route path="tasks" element={<TaskBrowserPage mode="all" />} />
+                <Route path="tasks/:id" element={<TaskDetailPage />} />
+                <Route path="tasks/:id/verification" element={<VerificationCenterPage />} />
+                <Route path="tasks/:id/verify" element={<VerificationCenterPage />} />
+                <Route path="payments" element={<PaymentsPage />} />
+                <Route path="earnings" element={<EarningsPage />} />
+                <Route path="profile" element={<ProfilePage />} />
+                <Route path="integrations" element={<IntegrationsPage />} />
+                <Route path="docs" element={<DocsPage />} />
+                <Route
+                  path="admin"
+                  element={
+                    <AdminRoute>
+                      <AdminPage />
+                    </AdminRoute>
+                  }
+                />
+              </Route>
 
-            <Route path="/docs" element={<Navigate to="/app/docs" replace />} />
-            <Route path="/integrations" element={<Navigate to="/app/integrations" replace />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
+              <Route path="/docs" element={<Navigate to="/app/docs" replace />} />
+              <Route path="/integrations" element={<Navigate to="/app/integrations" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </div>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

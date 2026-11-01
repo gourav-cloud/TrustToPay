@@ -295,7 +295,7 @@ export default function WorkspacePage() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="text-destructive"
+                          className="text-amber-400"
                           onClick={() => setDocuments((current) => current.filter((item) => item.key !== document.key))}
                         >
                           <Trash2 className="size-3.5" /> Remove

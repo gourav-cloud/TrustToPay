@@ -1044,7 +1044,7 @@ function PaymentsCard({
                 <p className="truncate font-mono text-[10px] text-muted-foreground">Batch {payment.payoutBatchId}</p>
               ) : null}
               {payment.failureMessage ? (
-                <p className="mt-1 text-[10px] leading-4 text-red-400">{payment.failureMessage}</p>
+                <p className="mt-1 text-[10px] leading-4 text-amber-400">{payment.failureMessage}</p>
               ) : null}
               {(isAdmin || isRequester) && ["FAILED", "PROCESSING", "PENDING"].includes(payment.status) ? (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1195,14 +1195,14 @@ function VerificationCard({
                     className={cn(
                       "flex gap-1.5 rounded border p-2",
                       check.severity === "HARD"
-                        ? "border-red-500/30 bg-red-500/10"
+                        ? "border-amber-500/30 bg-amber-500/10"
                         : "border-amber-500/30 bg-amber-500/10",
                     )}
                   >
                     <ShieldAlert
                       className={cn(
                         "mt-0.5 size-3.5 shrink-0",
-                        check.severity === "HARD" ? "text-red-400" : "text-amber-400",
+                        check.severity === "HARD" ? "text-amber-400" : "text-amber-400",
                       )}
                     />
                     <div>

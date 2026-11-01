@@ -200,7 +200,7 @@ export default function VerificationCenterPage() {
                       </pre>
                     ) : null}
                     {latest.executionSummary.stderr ? (
-                      <pre className="max-h-40 overflow-auto rounded-md border border-red-500/30 bg-red-500/10 p-2.5 font-mono text-[11px] text-red-200">
+                      <pre className="max-h-40 overflow-auto rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 font-mono text-[11px] text-amber-200">
                         {latest.executionSummary.stderr}
                       </pre>
                     ) : null}
@@ -333,7 +333,7 @@ function Metric({ label, value, tone }: { label: string; value: number; tone: "s
       <p
         className={cn(
           "mt-0.5 text-xl font-semibold tabular-nums",
-          tone === "success" ? "text-emerald-400" : tone === "danger" ? "text-red-400" : "text-foreground",
+          tone === "success" ? "text-emerald-400" : tone === "danger" ? "text-amber-400" : "text-foreground",
         )}
       >
         {value}
@@ -383,12 +383,12 @@ function CheckList({ run }: { run: VerificationRun }) {
                   className={cn(
                     "flex gap-2 rounded-md border p-2.5",
                     check.severity === "HARD"
-                      ? "border-red-500/30 bg-red-500/10"
+                      ? "border-amber-500/30 bg-amber-500/10"
                       : "border-amber-500/30 bg-amber-500/10",
                   )}
                 >
                   {check.severity === "HARD" ? (
-                    <XCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
+                    <XCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
                   ) : (
                     <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-400" />
                   )}

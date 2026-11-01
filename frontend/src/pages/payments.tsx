@@ -347,7 +347,7 @@ function PaymentRow({
         </p>
         <p className="text-[9px] text-muted-foreground">{formatDate(payment.createdAt)}</p>
         {payment.failureMessage ? (
-          <p className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-red-400">{payment.failureMessage}</p>
+          <p className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-amber-400">{payment.failureMessage}</p>
         ) : null}
       </div>
       <div className="flex items-center gap-1.5 text-xs">

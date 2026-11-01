@@ -69,7 +69,7 @@ export function StatCard({
     info: "text-blue-400",
     success: "text-emerald-400",
     warning: "text-amber-400",
-    danger: "text-red-400",
+    danger: "text-amber-400",
   }[tone];
 
   return (

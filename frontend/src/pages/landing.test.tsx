@@ -15,7 +15,7 @@ vi.mock("@/context/AuthContext", () => ({
   }),
 }));
 
-describe("LandingPage dark obsidian redesign & interactive workflow", () => {
+describe("LandingPage departure-board redesign & interactive workflow", () => {
   it("renders the preserved brand identity, primary navigation links, and hero headline", () => {
     render(
       <MemoryRouter>
@@ -24,7 +24,7 @@ describe("LandingPage dark obsidian redesign & interactive workflow", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: /Give your AI agents a human when they need one\./i }),
+      screen.getByRole("heading", { name: /Give your agent a human connection\./i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/AI doesn't have to solve everything alone\./i)).toBeInTheDocument();
 

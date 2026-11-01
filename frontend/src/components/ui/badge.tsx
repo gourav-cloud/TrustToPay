@@ -11,7 +11,7 @@ const badgeVariants = cva(
         info: "border-blue-500/30 bg-blue-500/12 text-blue-300",
         success: "border-emerald-500/30 bg-emerald-500/12 text-emerald-300",
         warning: "border-amber-500/30 bg-amber-500/12 text-amber-300",
-        danger: "border-red-500/30 bg-red-500/12 text-red-300",
+        danger: "border-amber-500/30 bg-amber-500/12 text-amber-300",
         accent: "border-sky-500/30 bg-sky-500/12 text-sky-300",
       },
     },
@@ -24,7 +24,7 @@ const dotToneClasses: Record<NonNullable<VariantProps<typeof badgeVariants>["ton
   info: "bg-blue-400",
   success: "bg-emerald-400",
   warning: "bg-amber-400",
-  danger: "bg-red-400",
+  danger: "bg-amber-400",
   accent: "bg-sky-400",
 };
 

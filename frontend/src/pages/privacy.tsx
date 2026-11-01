@@ -6,16 +6,16 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-dvh bg-[#080C14] text-[#F1F5F9]">
+    <div className="min-h-dvh bg-background text-foreground">
       <PublicHeader />
       <main className="container max-w-3xl py-12">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3B82F6]">
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
           Data Governance &amp; Privacy
         </p>
-        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-[#F1F5F9]">
+        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
           Privacy &amp; Data Handling Notice
         </h1>
-        <p className="mt-2 text-sm leading-6 text-[#94A3B8]">
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           This notice documents the data models, session credentials, and external provider payloads processed by the
           TrustToPay platform during operation.
         </p>
@@ -23,10 +23,10 @@ export default function PrivacyPage() {
         <div className="mt-8 space-y-4">
           <Card>
             <CardContent className="space-y-3 p-5">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-[#F1F5F9]">
-                <Database className="size-4 text-[#3B82F6]" /> Data stored by the platform
+              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+                <Database className="size-4 text-primary" /> Data stored by the platform
               </h2>
-              <ul className="list-disc space-y-1.5 pl-5 text-sm leading-6 text-[#94A3B8]">
+              <ul className="list-disc space-y-1.5 pl-5 text-sm leading-6 text-muted-foreground">
                 <li>Account records: name, email, role, password hash, specialist approval status, and profile metadata.</li>
                 <li>Specialist payout profile: PayPal Sandbox recipient email, explicit consent flag, and provider type.</li>
                 <li>
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
                 </li>
                 <li>Immutable audit trail entries for administrative and lifecycle transitions.</li>
               </ul>
-              <p className="text-sm leading-6 text-[#94A3B8]">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Payment card numbers and bank credentials are never collected or stored by TrustToPay. In PayPal Sandbox
                 mode, PayPal hosts the checkout flow and the server records only the order and payout batch references
                 required for reconciliation.
@@ -53,12 +53,12 @@ export default function PrivacyPage() {
 
           <Card>
             <CardContent className="space-y-3 p-5">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-[#F1F5F9]">
-                <Lock className="size-4 text-[#3B82F6]" /> Authentication &amp; session storage
+              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+                <Lock className="size-4 text-primary" /> Authentication &amp; session storage
               </h2>
-              <p className="text-sm leading-6 text-[#94A3B8]">
+              <p className="text-sm leading-6 text-muted-foreground">
                 TrustToPay authenticates requests using a signed JWT session token stored in an{" "}
-                <code className="font-mono text-xs text-[#F1F5F9]">httpOnly</code> session cookie and an authenticated
+                <code className="font-mono text-xs text-foreground">httpOnly</code> session cookie and an authenticated
                 session bearer token. The platform does not load third-party advertising trackers or behavioral
                 analytics. The official PayPal JS SDK is loaded on demand only when a PayPal Sandbox funding dialog is
                 opened.
@@ -68,15 +68,15 @@ export default function PrivacyPage() {
 
           <Card>
             <CardContent className="space-y-3 p-5">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-[#F1F5F9]">
-                <Trash2 className="size-4 text-[#3B82F6]" /> Retention &amp; environment isolation
+              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+                <Trash2 className="size-4 text-primary" /> Retention &amp; environment isolation
               </h2>
-              <p className="text-sm leading-6 text-[#94A3B8]">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Application records are persisted in the relational database configured by{" "}
-                <code className="font-mono text-xs text-[#F1F5F9]">DATABASE_URL</code>. Operators deploying the
+                <code className="font-mono text-xs text-foreground">DATABASE_URL</code>. Operators deploying the
                 platform control database retention, backups, and index synchronization with Elasticsearch.
               </p>
-              <p className="text-sm leading-6 text-[#94A3B8]">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Do not submit live production secrets, regulated personal data, or live financial credentials into a
                 Sandbox or evaluation deployment.
               </p>
@@ -85,10 +85,10 @@ export default function PrivacyPage() {
 
           <Card>
             <CardContent className="space-y-3 p-5">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-[#F1F5F9]">
-                <ShieldCheck className="size-4 text-[#3B82F6]" /> External service integrations
+              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+                <ShieldCheck className="size-4 text-primary" /> External service integrations
               </h2>
-              <p className="text-sm leading-6 text-[#94A3B8]">
+              <p className="text-sm leading-6 text-muted-foreground">
                 When PayPal Sandbox mode is enabled, order creation, order capture, payout batch creation, and webhook
                 signature verification calls are sent to PayPal Sandbox endpoints. When Gemini or an external AI
                 provider is configured on the server, bounded task or security review inputs are transmitted server-side.
@@ -100,10 +100,10 @@ export default function PrivacyPage() {
 
           <Card>
             <CardContent className="space-y-3 p-5">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-[#F1F5F9]">
-                <Mail className="size-4 text-[#3B82F6]" /> Support &amp; security inquiries
+              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+                <Mail className="size-4 text-primary" /> Support &amp; security inquiries
               </h2>
-              <p className="text-sm leading-6 text-[#94A3B8]">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Visit the operational support and security disclosure page for guidance on troubleshooting environment
                 configuration or reporting security findings.
               </p>

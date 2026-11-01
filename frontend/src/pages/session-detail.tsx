@@ -392,7 +392,7 @@ function AnalysisCard({
             <p
               className={cn(
                 "mt-1 text-2xl font-semibold tabular-nums",
-                confidence >= 75 ? "text-emerald-400" : confidence >= 50 ? "text-amber-400" : "text-red-400",
+                confidence >= 75 ? "text-emerald-400" : confidence >= 50 ? "text-amber-400" : "text-amber-400",
               )}
             >
               {confidence}%
@@ -401,7 +401,7 @@ function AnalysisCard({
               <div
                 className={cn(
                   "h-full rounded-full",
-                  confidence >= 75 ? "bg-emerald-600" : confidence >= 50 ? "bg-amber-500" : "bg-red-600",
+                  confidence >= 75 ? "bg-emerald-600" : confidence >= 50 ? "bg-amber-500" : "bg-amber-600",
                 )}
                 style={{ width: `${Math.max(3, confidence)}%` }}
               />

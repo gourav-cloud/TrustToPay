@@ -226,7 +226,7 @@ export function SpecialistsGridTab() {
                 ? "text-amber-400"
                 : status === "PENDING_APPROVAL"
                   ? "text-blue-400"
-                  : "text-red-400";
+                  : "text-amber-400";
           return <span className={`text-xs font-medium ${color}`}>{humanize(status)}</span>;
         },
       },
@@ -750,7 +750,7 @@ export function SecurityVerificationsGridTab() {
           const risk = params.data?.riskLevel ?? "LOW";
           const toneClass =
             risk === "CRITICAL" || risk === "HIGH"
-              ? "text-red-400 font-semibold"
+              ? "text-amber-400 font-semibold"
               : risk === "MEDIUM"
                 ? "text-amber-400 font-medium"
                 : "text-emerald-400";
@@ -767,7 +767,7 @@ export function SecurityVerificationsGridTab() {
           if (!row) return null;
           return (
             <span className="text-xs">
-              <strong className={row.testPassed ? "text-emerald-400" : "text-red-400"}>
+              <strong className={row.testPassed ? "text-emerald-400" : "text-amber-400"}>
                 {row.testPassed ? "PASS" : `EXIT ${row.testExitCode}`}
               </strong>{" "}
               <span className="text-[11px] text-muted-foreground">({row.testRunnerMode})</span>
@@ -1123,7 +1123,7 @@ export function SkillAssessmentsGridTab() {
             return <span className="text-xs font-medium text-blue-400">In Progress</span>;
           }
           return (
-            <span className={`inline-flex items-center gap-1 text-xs font-semibold ${row.passed ? "text-emerald-400" : "text-red-400"}`}>
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold ${row.passed ? "text-emerald-400" : "text-amber-400"}`}>
               {row.passed ? <CheckCircle2 className="size-3.5" /> : <ShieldAlert className="size-3.5" />}
               {row.passed ? "PASSED" : "FAILED"}
             </span>

@@ -47,7 +47,8 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, login, register } = useAuth();
+  const { user, login, register, demoLogin } = useAuth();
+  const [demoSubmitting, setDemoSubmitting] = useState<"requester" | "reviewer" | "admin" | null>(null);
 
   const derivedMode: "login" | "register" =
     initialMode === "register" || location.pathname === "/register" || params.get("mode") === "register"
@@ -111,41 +112,49 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
     }
   }
 
+  async function onDemoLogin(role: "requester" | "reviewer" | "admin") {
+    setError(null);
+    setDemoSubmitting(role);
+    try {
+      await demoLogin(role);
+      navigate("/app", { replace: true });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Demo sign-in failed. Please try again.");
+    } finally {
+      setDemoSubmitting(null);
+    }
+  }
+
   return (
-    <div className="grid min-h-dvh bg-[#080C14] text-[#F1F5F9] lg:grid-cols-[1.04fr_1fr]">
-      {/* Left architectural panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-[#1E2B42] bg-[#0B101B] p-10 lg:flex xl:p-14">
-        <div className="surface-grid-dark pointer-events-none absolute inset-0 opacity-60" aria-hidden />
-        <div
-          className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full bg-[#3B82F6]/10 blur-3xl"
-          aria-hidden
-        />
+    <div className="grid min-h-dvh bg-background text-foreground lg:grid-cols-[1fr_1fr]">
+      <div className="paypal-auth-panel relative hidden flex-col justify-between overflow-hidden border-r border-border bg-secondary/60 p-8 lg:flex xl:p-12">
+        <div className="paypal-auth-grid pointer-events-none absolute inset-0 opacity-70" aria-hidden />
 
         <div className="relative z-10">
           <div className="flex items-center justify-between">
-            <Brand tone="inverse" />
+            <Brand />
             <Link
               to="/"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#94A3B8] transition-colors hover:text-[#F1F5F9]"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <ArrowLeft className="size-3.5" /> Back to home
             </Link>
           </div>
 
-          <div className="mt-14 max-w-lg">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3B82F6]">
+          <div className="mt-12 max-w-lg">
+            <p className="text-sm font-semibold text-primary">
               Human-in-the-Loop Execution Protocol
             </p>
-            <h1 className="mt-3 font-display text-3xl font-bold leading-[1.15] tracking-tight text-[#F1F5F9] xl:text-4xl">
+            <h1 className="mt-3 font-display text-3xl font-bold leading-[1.15] tracking-tight text-foreground xl:text-4xl">
               Deterministic verification between autonomous agents and human specialists.
             </h1>
-            <p className="mt-4 text-sm leading-6 text-[#94A3B8]">
+            <p className="mt-4 text-base leading-7 text-muted-foreground">
               When an AI agent hits conflicting specifications, ambiguous runtime behavior, or high-risk code paths,
               TrustToPay routes the bounded blocker to a verified specialist, validates the submission in isolation, and
               returns a signed handback payload.
             </p>
 
-            <div className="mt-8 space-y-3 border-t border-[#1E2B42] pt-6">
+            <div className="mt-8 space-y-3 border-t border-border pt-6">
               {[
                 {
                   title: "Hybrid Specialist Discovery",
@@ -165,15 +174,15 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
               ].map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-lg border border-[#1E2B42] bg-[#0E1522]/90 p-3.5 transition-colors hover:border-[#2A3B59]"
+                  className="rounded-lg border border-border bg-card/90 p-4 transition-colors hover:border-primary/50"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]">
+                    <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary">
                       <ShieldCheck className="size-3.5" />
                     </span>
                     <div>
-                      <p className="text-xs font-semibold text-[#F1F5F9]">{item.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-[#94A3B8]">{item.detail}</p>
+                      <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                      <p className="mt-1 text-sm leading-5 text-muted-foreground">{item.detail}</p>
                     </div>
                   </div>
                 </div>
@@ -182,46 +191,46 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between border-t border-[#1E2B42] pt-5 font-mono text-[11px] text-[#64748B]">
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-5 text-xs text-muted-foreground">
           <span>SHA-256 Artifact Integrity · HMAC-SHA256 Handback</span>
           <span>PayPal Sandbox Guardrails Active</span>
         </div>
       </div>
 
       {/* Right authentication panel */}
-      <div className="flex flex-col justify-between bg-[#080C14]">
-        <div className="flex items-center justify-between border-b border-[#1E2B42] px-6 py-4 lg:border-b-0 lg:px-10 lg:py-6">
+      <div className="flex flex-col justify-between bg-background">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4 lg:border-b-0 lg:px-10 lg:py-6">
           <div className="lg:hidden">
             <Brand />
           </div>
-          <div className="hidden text-xs text-[#64748B] lg:block">
+          <div className="hidden text-sm text-muted-foreground lg:block">
             {mode === "login" ? "New to TrustToPay?" : "Already have an account?"}{" "}
             <button
               type="button"
               onClick={() => switchMode(mode === "login" ? "register" : "login")}
-              className="font-medium text-[#3B82F6] hover:text-[#60A5FA]"
+              className="font-semibold text-primary hover:underline"
             >
               {mode === "login" ? "Create an account" : "Sign in"}
             </button>
           </div>
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#94A3B8] hover:text-[#F1F5F9] lg:hidden"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground lg:hidden"
           >
             <ArrowLeft className="size-3.5" /> Home
           </Link>
         </div>
 
         <div className="flex flex-1 items-center justify-center px-6 py-8 lg:px-12">
-          <div className="w-full max-w-md space-y-6">
+          <div className="paypal-auth-form w-full max-w-lg space-y-6">
             <div>
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.15em] text-[#3B82F6]">
+              <p className="text-sm font-semibold text-primary">
                 {mode === "login" ? "Workspace Access" : "Account Provisioning"}
               </p>
-              <h2 className="mt-1.5 font-display text-2xl font-bold tracking-tight text-[#F1F5F9]">
+              <h2 className="mt-1.5 font-display text-2xl font-bold tracking-tight text-foreground">
                 {mode === "login" ? "Sign in to TrustToPay" : "Create your TrustToPay account"}
               </h2>
-              <p className="mt-1.5 text-sm leading-6 text-[#94A3B8]">
+              <p className="mt-1.5 text-base leading-6 text-muted-foreground">
                 {mode === "login"
                   ? "Access your agent sessions, specialist workbench, verification logs, and payment ledger."
                   : "Choose your workspace role to start escalating agent blockers or verifying technical tasks."}
@@ -232,7 +241,7 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
             <div
               role="tablist"
               aria-label="Authentication mode"
-              className="grid grid-cols-2 rounded-lg border border-[#1E2B42] bg-[#0E1522] p-1"
+              className="grid grid-cols-2 rounded-lg border border-border bg-secondary p-1"
             >
               <button
                 type="button"
@@ -240,10 +249,10 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
                 aria-selected={mode === "login"}
                 onClick={() => switchMode("login")}
                 className={cn(
-                  "rounded-md py-2 text-xs font-semibold transition-colors",
+                  "rounded-md py-2.5 text-sm font-semibold transition-colors",
                   mode === "login"
-                    ? "bg-[#151E2E] text-[#F1F5F9] shadow-sm"
-                    : "text-[#94A3B8] hover:text-[#F1F5F9]",
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 Sign In
@@ -254,10 +263,10 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
                 aria-selected={mode === "register"}
                 onClick={() => switchMode("register")}
                 className={cn(
-                  "rounded-md py-2 text-xs font-semibold transition-colors",
+                  "rounded-md py-2.5 text-sm font-semibold transition-colors",
                   mode === "register"
-                    ? "bg-[#151E2E] text-[#F1F5F9] shadow-sm"
-                    : "text-[#94A3B8] hover:text-[#F1F5F9]",
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 Create Account
@@ -266,31 +275,69 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
 
             {error ? <Alert tone="danger">{error}</Alert> : null}
 
-            <div className="rounded-xl border border-[#1E2B42] bg-[#0E1522] p-6 shadow-xl">
+            <div className="paypal-auth-card rounded-xl border border-border bg-card p-5 shadow-lg sm:p-6">
               {mode === "login" ? (
-                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4" noValidate>
-                  <Field label="Work or personal email" htmlFor="email" error={loginForm.formState.errors.email?.message}>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@company.com"
-                      autoComplete="email"
-                      {...loginForm.register("email")}
-                    />
-                  </Field>
-                  <Field label="Password" htmlFor="password" error={loginForm.formState.errors.password?.message}>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="••••••••"
-                      autoComplete="current-password"
-                      {...loginForm.register("password")}
-                    />
-                  </Field>
-                  <Button type="submit" className="w-full" loading={loginForm.formState.isSubmitting}>
-                    <KeyRound className="size-4" /> Sign in to workspace
-                  </Button>
-                </form>
+                <>
+                  <div className="mb-4 space-y-2">
+                    <p className="text-sm font-semibold text-muted-foreground">
+                      Quick demo access
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {[
+                        { role: "requester", label: "Requester", accent: "text-primary" },
+                        { role: "reviewer", label: "Specialist", accent: "text-emerald-700" },
+                        { role: "admin", label: "Admin", accent: "text-amber-700" },
+                      ].map(({ role, label, accent }) => (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => onDemoLogin(role as "requester" | "reviewer" | "admin")}
+                          disabled={demoSubmitting !== null}
+                          aria-label={`Sign in as ${label}`}
+                          className={cn(
+                            "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60",
+                            demoSubmitting === role && "border-primary bg-primary/10",
+                          )}
+                        >
+                          <span className={cn("inline-flex size-2 rounded-full", accent, "bg-current")} aria-hidden />
+                          {demoSubmitting === role ? "Opening…" : label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="h-px flex-1 bg-border" />
+                    <span>or use your own account</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+
+                  <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4" noValidate>
+                    <Field label="Work or personal email" htmlFor="email" error={loginForm.formState.errors.email?.message}>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@company.com"
+                        autoComplete="email"
+                        className="h-11"
+                        {...loginForm.register("email")}
+                      />
+                    </Field>
+                    <Field label="Password" htmlFor="password" error={loginForm.formState.errors.password?.message}>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="••••••••"
+                        autoComplete="current-password"
+                        className="h-11"
+                        {...loginForm.register("password")}
+                      />
+                    </Field>
+                    <Button type="submit" className="w-full" loading={loginForm.formState.isSubmitting}>
+                      <KeyRound className="size-4" /> Sign in to workspace
+                    </Button>
+                  </form>
+                </>
               ) : (
                 <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4" noValidate>
                   <Field label="Full name" htmlFor="name" error={registerForm.formState.errors.name?.message}>
@@ -298,6 +345,7 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
                       id="name"
                       placeholder="Ada Lovelace"
                       autoComplete="name"
+                      className="h-11"
                       {...registerForm.register("name")}
                     />
                   </Field>
@@ -307,6 +355,7 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
                       type="email"
                       placeholder="ada@engineering.org"
                       autoComplete="email"
+                      className="h-11"
                       {...registerForm.register("email")}
                     />
                   </Field>
@@ -321,12 +370,13 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
                       type="password"
                       placeholder="Create a strong password"
                       autoComplete="new-password"
+                      className="h-11"
                       {...registerForm.register("password")}
                     />
                   </Field>
 
                   <div className="space-y-2">
-                    <label htmlFor="role" className="text-sm font-medium leading-none text-[#F1F5F9]">
+                    <label htmlFor="role" className="text-sm font-medium leading-none text-foreground">
                       Workspace role
                     </label>
                     <input type="hidden" id="role" {...registerForm.register("role")} />
@@ -334,21 +384,22 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
                       <button
                         type="button"
                         onClick={() => registerForm.setValue("role", "REQUESTER", { shouldValidate: true })}
+                        aria-pressed={selectedRole === "REQUESTER"}
                         className={cn(
-                          "flex flex-col items-start rounded-lg border p-3 text-left transition-colors",
+                          "flex min-h-32 flex-col items-start rounded-lg border p-4 text-left transition-colors",
                           selectedRole === "REQUESTER"
-                            ? "border-[#3B82F6] bg-[#3B82F6]/10 text-[#F1F5F9]"
-                            : "border-[#1E2B42] bg-[#080C14] text-[#94A3B8] hover:border-[#2A3B59] hover:text-[#F1F5F9]",
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
                         )}
                       >
                         <div className="flex w-full items-center justify-between">
-                          <Bot className="size-4 text-[#3B82F6]" />
+                          <Bot className="size-4 text-primary" />
                           {selectedRole === "REQUESTER" ? (
-                            <CheckCircle2 className="size-3.5 text-[#3B82F6]" />
+                            <CheckCircle2 className="size-4 text-primary" />
                           ) : null}
                         </div>
-                        <span className="mt-2 text-xs font-semibold text-[#F1F5F9]">Requester</span>
-                        <span className="mt-0.5 text-[11px] leading-4 text-[#94A3B8]">
+                        <span className="mt-2 text-sm font-semibold text-foreground">Requester</span>
+                        <span className="mt-1 text-xs leading-5 text-muted-foreground">
                           I run AI agents &amp; fund human escalations
                         </span>
                       </button>
@@ -356,21 +407,22 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
                       <button
                         type="button"
                         onClick={() => registerForm.setValue("role", "REVIEWER", { shouldValidate: true })}
+                        aria-pressed={selectedRole === "REVIEWER"}
                         className={cn(
-                          "flex flex-col items-start rounded-lg border p-3 text-left transition-colors",
+                          "flex min-h-32 flex-col items-start rounded-lg border p-4 text-left transition-colors",
                           selectedRole === "REVIEWER"
-                            ? "border-[#3B82F6] bg-[#3B82F6]/10 text-[#F1F5F9]"
-                            : "border-[#1E2B42] bg-[#080C14] text-[#94A3B8] hover:border-[#2A3B59] hover:text-[#F1F5F9]",
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
                         )}
                       >
                         <div className="flex w-full items-center justify-between">
-                          <Code2 className="size-4 text-[#10B981]" />
+                          <Code2 className="size-4 text-emerald-700" />
                           {selectedRole === "REVIEWER" ? (
-                            <CheckCircle2 className="size-3.5 text-[#3B82F6]" />
+                            <CheckCircle2 className="size-4 text-primary" />
                           ) : null}
                         </div>
-                        <span className="mt-2 text-xs font-semibold text-[#F1F5F9]">Specialist</span>
-                        <span className="mt-0.5 text-[11px] leading-4 text-[#94A3B8]">
+                        <span className="mt-2 text-sm font-semibold text-foreground">Specialist</span>
+                        <span className="mt-1 text-xs leading-5 text-muted-foreground">
                           I verify tasks, submit patches &amp; earn rewards
                         </span>
                       </button>
@@ -386,20 +438,20 @@ export default function AuthPage({ initialMode }: { initialMode?: "login" | "reg
 
             <PaymentModeBanner compact />
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#1E2B42] pt-4 text-xs text-[#64748B]">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <Lock className="size-3.5 text-[#10B981]" /> Session JWT &amp; httpOnly cookie security
+                <Lock className="size-3.5 text-emerald-700" /> Session JWT &amp; httpOnly cookie security
               </span>
-              <Link to="/app/docs" className="inline-flex items-center gap-1 text-[#94A3B8] hover:text-[#F1F5F9]">
+              <Link to="/app/docs" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
                 <Terminal className="size-3.5" /> Architecture &amp; setup docs <ArrowRight className="size-3" />
               </Link>
             </div>
           </div>
         </div>
 
-        <div className="px-6 py-4 text-center text-[11px] text-[#64748B] lg:px-10">
+        <div className="px-6 py-4 text-center text-xs text-muted-foreground lg:px-10">
           By signing in or creating an account, you acknowledge the{" "}
-          <Link to="/privacy" className="text-[#94A3B8] underline underline-offset-2 hover:text-[#F1F5F9]">
+          <Link to="/privacy" className="text-muted-foreground underline underline-offset-2 hover:text-foreground">
             Data Governance Notice
           </Link>
           .

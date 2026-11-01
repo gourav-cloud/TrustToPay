@@ -162,6 +162,49 @@ describe("AuthPage UI & session security acceptance", () => {
     });
   });
 
+  it("lets a requester sign in instantly from the demo quick-access card", async () => {
+    let demoBody: Record<string, string> | null = null;
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/auth/demo-login") && init?.method === "POST") {
+        demoBody = JSON.parse(String(init.body));
+        return Promise.resolve(
+          jsonResponse({
+            user: {
+              id: "u_demo_req",
+              email: "agent@demo.trusttopay.dev",
+              name: "Demo Requester",
+              role: "REQUESTER",
+              isReviewerApproved: false,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+            },
+            demo: true,
+          }),
+        );
+      }
+      if (url.includes("/integrations/status")) {
+        return Promise.resolve(
+          jsonResponse({
+            paypal: { paymentsMode: "SIMULATED", configured: false, payoutsEnabled: false },
+            ai: { engine: "demo" },
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({ error: { code: "UNAUTHENTICATED", message: "Sign in" } }, 401));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAuthApp("/login");
+
+    fireEvent.click(screen.getByRole("button", { name: /Requester/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("app-dashboard")).toBeInTheDocument();
+    });
+    expect(demoBody).toMatchObject({ role: "requester" });
+    expect(window.localStorage.getItem("ttp_session_token")).toBeNull();
+  });
+
   it("displays an error alert when invalid credentials are submitted", async () => {
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("/auth/login") && init?.method === "POST") {

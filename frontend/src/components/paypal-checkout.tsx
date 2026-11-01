@@ -164,7 +164,7 @@ export function PayPalCheckout({
           <CreditCard className="size-4" />
           {label ?? `Fund ${amountDisplay} with PayPal`}
         </Button>
-        {error && !open ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
+        {error && !open ? <p className="text-xs font-medium text-amber-400">{error}</p> : null}
       </div>
 
       <Dialog

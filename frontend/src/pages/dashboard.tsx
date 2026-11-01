@@ -53,7 +53,7 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
   );
 }
 
-const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#38BDF8", "#EF4444", "#64748B"];
+const CHART_COLORS = ["#0070E0", "#00A8EA", "#003087", "#3B82F6", "#36C2D8", "#6686B3"];
 
 function RequesterDashboard() {
   const { user } = useAuth();
@@ -67,7 +67,7 @@ function RequesterDashboard() {
   const data = query.data;
 
   return (
-    <div className="space-y-6">
+    <div className="dashboard-enter space-y-6">
       <PageHeader
         eyebrow="Requester workspace"
         title={`Welcome back, ${user?.name.split(" ")[0] ?? "operator"}`}
@@ -158,25 +158,25 @@ function RequesterDashboard() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.sessions.byStatus} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1E2B42" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                   <XAxis
                     dataKey="status"
                     tickFormatter={(value: string) => humanize(value).split(" ")[0]}
-                    tick={{ fontSize: 9, fill: "#94A3B8" }}
+                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
                     axisLine={false}
                     tickLine={false}
                     interval={0}
                   />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                   <Tooltip
                     formatter={(value: number) => [`${value}`, "Sessions"]}
                     labelFormatter={(label: string) => humanize(label)}
                     contentStyle={{
                       fontSize: 11,
                       borderRadius: 8,
-                      borderColor: "#1E2B42",
-                      backgroundColor: "#0E1522",
-                      color: "#F1F5F9",
+                      borderColor: "hsl(var(--border))",
+                      backgroundColor: "hsl(var(--card))",
+                      color: "hsl(var(--foreground))",
                     }}
                   />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]}>
@@ -281,7 +281,7 @@ function ReviewerDashboard() {
   const data = query.data;
 
   return (
-    <div className="space-y-6">
+    <div className="dashboard-enter space-y-6">
       <PageHeader
         eyebrow="Reviewer workspace"
         title={`Good to see you, ${user?.name.split(" ")[0] ?? "reviewer"}`}
@@ -453,7 +453,7 @@ function AdminDashboard() {
   const data = query.data;
 
   return (
-    <div className="space-y-6">
+    <div className="dashboard-enter space-y-6">
       <PageHeader
         eyebrow="Administration"
         title="System overview"
@@ -505,11 +505,11 @@ function AdminDashboard() {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.tasks.byStatus} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1E2B42" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="status"
                   tickFormatter={(value: string) => humanize(value).split(" ")[0]}
-                  tick={{ fontSize: 8, fill: "#94A3B8" }}
+                  tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }}
                   axisLine={false}
                   tickLine={false}
                   interval={0}
@@ -517,19 +517,19 @@ function AdminDashboard() {
                   textAnchor="end"
                   height={46}
                 />
-                <YAxis allowDecimals={false} tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                 <Tooltip
                   formatter={(value: number) => [`${value}`, "Tasks"]}
                   labelFormatter={(label: string) => humanize(label)}
                   contentStyle={{
                     fontSize: 11,
                     borderRadius: 8,
-                    borderColor: "#1E2B42",
-                    backgroundColor: "#0E1522",
-                    color: "#F1F5F9",
+                    borderColor: "hsl(var(--border))",
+                    backgroundColor: "hsl(var(--card))",
+                    color: "hsl(var(--foreground))",
                   }}
                 />
-                <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" fill="#0070E0" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -605,7 +605,7 @@ function AdminDashboard() {
                   {task.failedPayments.length > 0 ? (
                     <div className="mt-2 space-y-1">
                       {task.failedPayments.map((payment) => (
-                        <p key={payment.id} className="flex items-start gap-1.5 text-[11px] text-red-400">
+                        <p key={payment.id} className="flex items-start gap-1.5 text-[11px] text-amber-400">
                           <XCircle className="mt-0.5 size-3 shrink-0" />
                           <span>
                             {payment.type} · {payment.mode === "SIMULATED" ? "simulated" : "sandbox"} ·{" "}

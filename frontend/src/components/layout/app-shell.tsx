@@ -182,6 +182,7 @@ export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const isOverview = location.pathname === "/app";
 
   const integrations = useQuery({
     queryKey: ["integrations", "status"],
@@ -208,7 +209,7 @@ export function AppShell() {
   return (
     <div className="min-h-dvh bg-background text-foreground">
       {/* Mobile top bar */}
-      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card px-4 lg:hidden">
+      <div className="paypal-topbar sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card px-4 lg:hidden">
         <div className="flex items-center gap-2.5">
           <Button variant="ghost" size="icon" aria-label="Open navigation" onClick={() => setMobileOpen(true)}>
             <Menu className="size-4" />
@@ -224,7 +225,8 @@ export function AppShell() {
         {/* Sidebar */}
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-[#0A0F1A] transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0",
+            "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-card transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0",
+            "paypal-sidebar",
             mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           )}
         >
@@ -324,7 +326,7 @@ export function AppShell() {
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="shrink-0 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                className="shrink-0 text-xs text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
               >
                 <LogOut className="size-3.5" /> Sign out
               </Button>
@@ -343,7 +345,7 @@ export function AppShell() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Desktop top bar */}
-          <header className="sticky top-0 z-30 hidden h-16 items-center justify-between border-b border-border bg-[#080C14]/90 px-6 backdrop-blur lg:flex">
+          <header className="paypal-topbar sticky top-0 z-30 hidden h-16 items-center justify-between border-b border-border bg-background/90 px-6 backdrop-blur lg:flex">
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{roleLabel}</span>
               <span aria-hidden="true">·</span>
@@ -405,7 +407,7 @@ export function AppShell() {
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-amber-400 hover:bg-amber-500/10"
                       >
                         <LogOut className="size-3.5" /> Sign out
                       </button>
@@ -417,13 +419,13 @@ export function AppShell() {
           </header>
 
           <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            <div className="mx-auto w-full max-w-6xl">
+            <div className={cn("mx-auto w-full", isOverview ? "max-w-7xl" : "max-w-6xl")}>
               <Outlet />
             </div>
           </main>
 
           <footer className="border-t border-border/70 px-6 py-4 text-xs text-muted-foreground">
-            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
+            <div className={cn("mx-auto flex flex-wrap items-center justify-between gap-2", isOverview ? "max-w-7xl" : "max-w-6xl")}>
               <span>TrustToPay · Human-in-the-Loop Escalation &amp; Settlement</span>
               <span>
                 {mode === "SIMULATED"
