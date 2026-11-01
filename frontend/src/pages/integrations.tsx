@@ -90,7 +90,7 @@ export default function IntegrationsPage() {
         actions={
           <>
             <Button asChild variant="outline">
-              <a href="http://localhost:4000/api-docs" target="_blank" rel="noreferrer">
+              <a href="/api-docs" target="_blank" rel="noreferrer">
                 API docs <ExternalLink className="size-3.5" />
               </a>
             </Button>
@@ -370,7 +370,7 @@ export default function IntegrationsPage() {
                 server-stored minor units. Mismatches become failures, not silent successes.
               </p>
             </div>
-            <div className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-[11px] leading-5 text-amber-900">
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] leading-5 text-amber-200">
               Without <code>PAYPAL_WEBHOOK_ID</code>, webhook requests are rejected. The payment ledger still has manual
               reconcile controls for funding and payout state.
             </div>

@@ -17,7 +17,7 @@ import { api, ApiError } from "@/lib/api";
 import type { TaskDetail, VerificationRun } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { PageHeader, SectionHeading, DataRow } from "@/components/common";
-import { VerificationBadge } from "@/components/status-badges";
+import { VerificationBadge, SecurityVerdictBadge } from "@/components/status-badges";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -70,7 +70,7 @@ export default function VerificationCenterPage() {
           { label: "Verification" },
         ]}
         title="Independent verification record"
-        description="Verification is separate from payment approval. It checks the answer against the task, acceptance criteria, technical specifics, evidence and risk rules."
+        description="Verification is separate from payment approval. It checks the answer against the task, acceptance criteria, technical specifics, deterministic scanners, Gemini security gate and isolated execution."
         actions={
           <>
             <Button asChild variant="outline">
@@ -101,12 +101,24 @@ export default function VerificationCenterPage() {
                     </CardTitle>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <VerificationBadge status={latest.status} />
+                      {latest.securityVerdict ? (
+                        <SecurityVerdictBadge verdict={latest.securityVerdict} />
+                      ) : null}
+                      {latest.artifactVersion ? (
+                        <Badge tone="neutral">Artifact v{latest.artifactVersion}</Badge>
+                      ) : null}
                       <Badge tone="neutral">{latest.engine === "MANUAL" ? "Administrator decision" : "Automated"}</Badge>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-4">
                   <p className="text-sm leading-6">{latest.decisionReason}</p>
+                  {latest.artifactSha256 ? (
+                    <div className="rounded-md border border-border bg-muted/30 p-2.5 text-xs">
+                      <span className="font-semibold text-muted-foreground">Immutable Artifact SHA-256: </span>
+                      <span className="break-all font-mono text-[11px]">{latest.artifactSha256}</span>
+                    </div>
+                  ) : null}
                   <div className="grid gap-3 sm:grid-cols-3">
                     <Metric label="Passed" value={latest.checksPassed.length} tone="success" />
                     <Metric label="Failed" value={latest.checksFailed.length} tone={latest.checksFailed.length > 0 ? "danger" : "neutral"} />
@@ -118,6 +130,83 @@ export default function VerificationCenterPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {latest.securityReview ? (
+                <Card>
+                  <CardHeader className="border-b border-border pb-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <ShieldCheck className="size-4 text-primary" /> Layered Security Gate (Deterministic + Gemini)
+                      </CardTitle>
+                      <SecurityVerdictBadge verdict={latest.securityReview.verdict} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pt-3 text-xs">
+                    <p className="leading-5">{latest.securityReview.summary}</p>
+                    {latest.securityReview.gemini ? (
+                      <div className="rounded-md border border-border bg-muted/20 p-2.5">
+                        <p className="font-semibold">
+                          Gemini Security Review ({latest.securityReview.gemini.model}) ·{" "}
+                          {Math.round(latest.securityReview.gemini.confidence * 100)}% confidence
+                        </p>
+                        <p className="mt-1 text-muted-foreground">{latest.securityReview.gemini.summary}</p>
+                      </div>
+                    ) : null}
+                    {latest.securityReview.deterministic.findings.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Deterministic Scanner Findings ({latest.securityReview.deterministic.findings.length})
+                        </p>
+                        {latest.securityReview.deterministic.findings.map((finding, idx) => (
+                          <div key={`${finding.ruleId}-${idx}`} className="rounded border border-amber-500/30 bg-amber-500/10 p-2 text-amber-100">
+                            <p className="font-semibold text-amber-200">
+                              [{finding.severity}] {finding.ruleId} — {finding.message}
+                            </p>
+                            {finding.filePath ? (
+                              <p className="font-mono text-[10px] text-muted-foreground">File: {finding.filePath}</p>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {latest.executionSummary ? (
+                <Card>
+                  <CardHeader className="border-b border-border pb-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <CheckCircle2 className="size-4 text-primary" /> Isolated Execution Runner
+                      </CardTitle>
+                      <div className="flex items-center gap-1.5">
+                        <Badge tone={latest.executionSummary.passed ? "success" : "danger"} dot>
+                          {latest.executionSummary.verdict}
+                        </Badge>
+                        <Badge tone="neutral">{latest.executionSummary.mode}</Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5 pt-3 text-xs">
+                    <p>{latest.executionSummary.summary}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Exit code: {latest.executionSummary.exitCode ?? "—"} · Duration: {latest.executionSummary.durationMs}ms · Network:{" "}
+                      {latest.executionSummary.limits.networkAccess} · Memory cap: {latest.executionSummary.limits.maxMemoryMb}MB
+                    </p>
+                    {latest.executionSummary.stdout ? (
+                      <pre className="max-h-40 overflow-auto rounded-md border border-border bg-muted/40 p-2.5 font-mono text-[11px]">
+                        {latest.executionSummary.stdout}
+                      </pre>
+                    ) : null}
+                    {latest.executionSummary.stderr ? (
+                      <pre className="max-h-40 overflow-auto rounded-md border border-red-500/30 bg-red-500/10 p-2.5 font-mono text-[11px] text-red-200">
+                        {latest.executionSummary.stderr}
+                      </pre>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ) : null}
 
               <CheckList run={latest} />
 
@@ -145,7 +234,7 @@ export default function VerificationCenterPage() {
                           ) : null}
                         </div>
                         {reference.quote ? (
-                          <blockquote className="mt-1.5 border-l-2 border-primary/30 pl-2.5 text-[11px] italic leading-5 text-muted-foreground">
+                          <blockquote className="mt-1.5 rounded border border-border bg-muted/20 p-2 text-[11px] italic leading-5 text-muted-foreground">
                             “{reference.quote}”
                           </blockquote>
                         ) : null}
@@ -244,7 +333,7 @@ function Metric({ label, value, tone }: { label: string; value: number; tone: "s
       <p
         className={cn(
           "mt-0.5 text-xl font-semibold tabular-nums",
-          tone === "success" ? "text-emerald-700" : tone === "danger" ? "text-red-700" : "text-foreground",
+          tone === "success" ? "text-emerald-400" : tone === "danger" ? "text-red-400" : "text-foreground",
         )}
       >
         {value}
@@ -269,11 +358,11 @@ function CheckList({ run }: { run: VerificationRun }) {
               <p className="text-xs text-muted-foreground">No passed checks.</p>
             ) : (
               run.checksPassed.map((check) => (
-                <div key={check.id} className="flex gap-2 rounded-md border border-emerald-200 bg-emerald-50/50 p-2.5">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+                <div key={check.id} className="flex gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-400" />
                   <div>
-                    <p className="text-xs font-medium text-emerald-950">{check.label}</p>
-                    <p className="text-[10px] leading-4 text-emerald-900/80">{check.detail}</p>
+                    <p className="text-xs font-medium text-emerald-100">{check.label}</p>
+                    <p className="text-[10px] leading-4 text-emerald-200/80">{check.detail}</p>
                   </div>
                 </div>
               ))
@@ -285,7 +374,7 @@ function CheckList({ run }: { run: VerificationRun }) {
           <div className="space-y-1.5">
             {run.checksFailed.length === 0 ? (
               <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
-                <CheckCircle2 className="size-4 text-emerald-700" /> No failed checks.
+                <CheckCircle2 className="size-4 text-emerald-400" /> No failed checks.
               </div>
             ) : (
               run.checksFailed.map((check) => (
@@ -293,16 +382,18 @@ function CheckList({ run }: { run: VerificationRun }) {
                   key={check.id}
                   className={cn(
                     "flex gap-2 rounded-md border p-2.5",
-                    check.severity === "HARD" ? "border-red-200 bg-red-50/50" : "border-amber-200 bg-amber-50/50",
+                    check.severity === "HARD"
+                      ? "border-red-500/30 bg-red-500/10"
+                      : "border-amber-500/30 bg-amber-500/10",
                   )}
                 >
                   {check.severity === "HARD" ? (
-                    <XCircle className="mt-0.5 size-4 shrink-0 text-red-700" />
+                    <XCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
                   ) : (
-                    <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-700" />
+                    <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-400" />
                   )}
                   <div>
-                    <p className="text-xs font-medium">{check.label}</p>
+                    <p className="text-xs font-medium text-foreground">{check.label}</p>
                     <p className="text-[10px] leading-4 text-muted-foreground">{check.detail}</p>
                     <Badge tone={check.severity === "HARD" ? "danger" : "warning"} className="mt-1">
                       {check.severity === "HARD" ? "Required check" : "Risk check"}
@@ -328,10 +419,10 @@ function AdminDecisionCard({
   const [decision, setDecision] = useState<"PASS" | "REJECT">("PASS");
   const [note, setNote] = useState("");
   return (
-    <Card className="border-amber-200">
+    <Card className="border-amber-500/30">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <Gavel className="size-4 text-amber-700" /> Administrator manual decision
+          <Gavel className="size-4 text-amber-400" /> Administrator manual decision
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

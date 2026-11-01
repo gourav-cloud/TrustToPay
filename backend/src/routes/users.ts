@@ -5,6 +5,8 @@ import { AppError, asyncHandler } from "../lib/errors.js";
 import { requireAuth } from "../auth/middleware.js";
 import { toPublicUser } from "../auth/service.js";
 import { audit } from "../lib/audit.js";
+import { listSkillsForUser } from "../services/skills/assessmentEngine.js";
+import { syncSpecialistToElasticIndex } from "../services/elastic/specialistIndexService.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -15,12 +17,27 @@ const payoutProfileSchema = z.object({
   headline: z.string().trim().max(160).nullable().optional(),
   bio: z.string().trim().max(2000).nullable().optional(),
   timezone: z.string().trim().max(80).optional(),
-  skills: z.array(z.string().trim().min(1).max(80)).max(12).optional(),
 });
+
+router.get(
+  "/me/skills",
+  asyncHandler(async (req, res) => {
+    const skills = await listSkillsForUser(prisma, req.user!.id);
+    res.json({ skills });
+  }),
+);
 
 router.patch(
   "/me/payout",
   asyncHandler(async (req, res) => {
+    if (req.body && typeof req.body === "object" && "skills" in req.body && req.body.skills !== undefined) {
+      throw new AppError(
+        403,
+        "SELF_REPORTED_SKILLS_FORBIDDEN",
+        "Skills cannot be self-reported. Complete sequential L1–L3 skill assessments to earn verified skill badges.",
+      );
+    }
+
     const body = payoutProfileSchema.parse(req.body);
     const current = await prisma.userProfile.findUnique({ where: { userId: req.user!.id } });
     const nextEmail = body.payoutEmail === undefined ? current?.payoutEmail ?? null : body.payoutEmail;
@@ -60,15 +77,8 @@ router.patch(
       },
     });
 
-    if (body.skills) {
-      await prisma.$transaction(async (db) => {
-        await db.reviewerSkill.deleteMany({ where: { userId: req.user!.id } });
-        if (body.skills!.length > 0) {
-          await db.reviewerSkill.createMany({
-            data: body.skills!.map((name) => ({ userId: req.user!.id, name })),
-          });
-        }
-      });
+    if (req.user!.role === "REVIEWER") {
+      await syncSpecialistToElasticIndex(prisma, req.user!.id);
     }
 
     await audit(prisma, req, {
@@ -78,7 +88,6 @@ router.patch(
       metadata: {
         payoutEmailSet: Boolean(profile.payoutEmail),
         payoutConsent: profile.payoutConsent,
-        skills: body.skills?.length,
       },
     });
 

@@ -19,3 +19,11 @@ process.env.FRONTEND_URL = "http://localhost:5173";
 process.env.API_BASE_URL = "http://localhost:4000";
 process.env.REWARD_MIN_MINOR = "500";
 process.env.REWARD_MAX_MINOR = "10000";
+process.env.GEMINI_API_KEY = "";
+process.env.ELASTIC_ENABLED = "false";
+process.env.ELASTICSEARCH_URL = "";
+process.env.ELASTICSEARCH_API_KEY = "";
+process.env.ELASTIC_INDEX_SPECIALISTS = "trusttopay-specialists-test";
+process.env.JINA_API_KEY = "";
+process.env.JINA_EMBEDDING_MODEL = "jina-embeddings-v3";
+

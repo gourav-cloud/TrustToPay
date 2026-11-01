@@ -66,17 +66,17 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        "flex flex-col items-start gap-2 rounded-lg border border-red-200 bg-red-50/70 p-4 text-sm text-red-900",
+        "flex flex-col items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200",
         className,
       )}
     >
-      <div className="flex items-center gap-2 font-medium">
+      <div className="flex items-center gap-2 font-semibold text-red-100">
         <AlertTriangle className="size-4" aria-hidden />
         Something went wrong
       </div>
       <p className="leading-6 opacity-90">{message}</p>
       {onRetry ? (
-        <button type="button" onClick={onRetry} className="text-xs font-medium underline underline-offset-2">
+        <button type="button" onClick={onRetry} className="text-xs font-medium text-red-100 underline underline-offset-2">
           Try again
         </button>
       ) : null}

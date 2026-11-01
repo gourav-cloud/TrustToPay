@@ -8,6 +8,7 @@ import { audit } from "../lib/audit.js";
 import { requireAuth } from "../auth/middleware.js";
 import {
   clearSessionCookie,
+  generateAgentApiKey,
   hashPassword,
   setSessionCookie,
   signSessionToken,
@@ -43,6 +44,11 @@ const demoLoginSchema = z.object({
   role: z.enum(["requester", "reviewer", "admin"]),
 });
 
+const createApiKeySchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  mode: z.enum(["live", "test"]).default("test"),
+});
+
 const DEMO_EMAILS: Record<string, string> = {
   requester: "agent@demo.trusttopay.dev",
   reviewer: "reviewer@demo.trusttopay.dev",
@@ -72,7 +78,8 @@ router.post(
       include: { profile: true, skills: true },
     });
 
-    setSessionCookie(res, signSessionToken(user));
+    const token = signSessionToken(user);
+    setSessionCookie(res, token);
     await audit(prisma, req, {
       actorId: user.id,
       action: "USER_REGISTERED",
@@ -100,7 +107,8 @@ router.post(
       throw new AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
     }
 
-    setSessionCookie(res, signSessionToken(user));
+    const token = signSessionToken(user);
+    setSessionCookie(res, token);
     await audit(prisma, req, {
       actorId: user.id,
       action: "USER_LOGIN",
@@ -133,7 +141,8 @@ router.post(
     }
     if (!user.isActive) throw new AppError(403, "USER_INACTIVE", "This demo user is deactivated.");
 
-    setSessionCookie(res, signSessionToken(user));
+    const token = signSessionToken(user);
+    setSessionCookie(res, token);
     await audit(prisma, req, {
       actorId: user.id,
       action: "DEMO_LOGIN",
@@ -173,6 +182,97 @@ router.get(
       where: { userId: req.user!.id, readAt: null },
     });
     res.json({ user: user ? toPublicUser(user) : null, unreadNotifications: unread });
+  }),
+);
+
+router.get(
+  "/api-keys",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const keys = await prisma.agentApiKey.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        prefix: true,
+        lastUsedAt: true,
+        createdAt: true,
+        revokedAt: true,
+      },
+    });
+    res.json({ items: keys });
+  }),
+);
+
+router.post(
+  "/api-keys",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user!.role !== "REQUESTER" && req.user!.role !== "ADMIN") {
+      throw new AppError(403, "FORBIDDEN", "Only requesters and administrators can create agent API keys.");
+    }
+    const body = createApiKeySchema.parse(req.body);
+    const { rawKey, keyHash, prefix } = generateAgentApiKey(body.mode);
+    const created = await prisma.agentApiKey.create({
+      data: {
+        userId: req.user!.id,
+        name: body.name,
+        keyHash,
+        prefix,
+      },
+      select: {
+        id: true,
+        name: true,
+        prefix: true,
+        lastUsedAt: true,
+        createdAt: true,
+        revokedAt: true,
+      },
+    });
+
+    await audit(prisma, req, {
+      actorId: req.user!.id,
+      action: "AGENT_API_KEY_CREATED",
+      entityType: "AgentApiKey",
+      entityId: created.id,
+      metadata: { name: created.name, prefix: created.prefix },
+    });
+
+    res.status(201).json({ apiKey: created, rawKey });
+  }),
+);
+
+router.delete(
+  "/api-keys/:id",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const key = await prisma.agentApiKey.findUnique({ where: { id: req.params.id } });
+    if (!key || (key.userId !== req.user!.id && req.user!.role !== "ADMIN")) {
+      throw new AppError(404, "API_KEY_NOT_FOUND", "Agent API key not found.");
+    }
+    const updated = await prisma.agentApiKey.update({
+      where: { id: key.id },
+      data: { revokedAt: key.revokedAt ?? new Date() },
+      select: {
+        id: true,
+        name: true,
+        prefix: true,
+        lastUsedAt: true,
+        createdAt: true,
+        revokedAt: true,
+      },
+    });
+
+    await audit(prisma, req, {
+      actorId: req.user!.id,
+      action: "AGENT_API_KEY_REVOKED",
+      entityType: "AgentApiKey",
+      entityId: updated.id,
+      metadata: { prefix: updated.prefix },
+    });
+
+    res.json({ apiKey: updated });
   }),
 );
 

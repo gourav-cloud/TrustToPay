@@ -12,8 +12,10 @@ import {
   CircleDollarSign,
   ClipboardCheck,
   Clock,
+  Code2,
   ExternalLink,
   FileCheck2,
+  FileCode2,
   FileText,
   Flag,
   Gavel,
@@ -26,16 +28,26 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Terminal,
   Wallet,
   X,
   XCircle,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import type { Submission, TaskDetail, VerificationRun } from "@/lib/types";
+import type { AgentHandbackPayload, Submission, TaskDetail, VerificationRun } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { PageHeader, SectionHeading, DataRow } from "@/components/common";
 import { PaymentModeBanner } from "@/components/payment-mode-banner";
-import { StatusBadge, ModeBadge, VerificationBadge, PaymentStatusBadge, RiskBadge } from "@/components/status-badges";
+import {
+  StatusBadge,
+  ModeBadge,
+  VerificationBadge,
+  PaymentStatusBadge,
+  PayoutAvailabilityBadge,
+  SecurityVerdictBadge,
+  SkillLevelBadge,
+  RiskBadge,
+} from "@/components/status-badges";
 import { TaskTimeline } from "@/components/task-timeline";
 import { PayPalCheckout } from "@/components/paypal-checkout";
 import { Alert } from "@/components/ui/alert";
@@ -59,6 +71,11 @@ export default function TaskDetailPage() {
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [rewardOpen, setRewardOpen] = useState(false);
+  const [handbackPreview, setHandbackPreview] = useState<{
+    handback: AgentHandbackPayload;
+    signature: { header: string; timestamp: string; algorithm: string };
+    idempotentReplay: boolean;
+  } | null>(null);
 
   const query = useQuery({
     queryKey: ["task", id],
@@ -68,6 +85,7 @@ export default function TaskDetailPage() {
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["task", id] });
+    await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     await queryClient.invalidateQueries({ queryKey: ["payments"] });
     await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     await queryClient.invalidateQueries({ queryKey: ["sessions"] });
@@ -80,6 +98,34 @@ export default function TaskDetailPage() {
       setError(null);
     },
     onError: (err) => setError(err instanceof ApiError ? err.message : "Could not accept the task."),
+  });
+
+  const declineOffer = useMutation({
+    mutationFn: () => api.tasks.declineOffer(id),
+    onSuccess: async () => {
+      await invalidate();
+      setError(null);
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Could not decline the task offer."),
+  });
+
+  const dispatchOffers = useMutation({
+    mutationFn: () => api.tasks.dispatchOffers(id),
+    onSuccess: async () => {
+      await invalidate();
+      setError(null);
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Could not dispatch specialist offers."),
+  });
+
+  const fetchHandback = useMutation({
+    mutationFn: () => api.tasks.handback(id),
+    onSuccess: async (data) => {
+      setHandbackPreview(data);
+      await invalidate();
+      setError(null);
+    },
+    onError: (err) => setError(err instanceof ApiError ? err.message : "Could not retrieve verified agent handback."),
   });
 
   const submit = useMutation({
@@ -163,14 +209,16 @@ export default function TaskDetailPage() {
   const isReviewer = user?.role === "REVIEWER";
   const isAdmin = user?.role === "ADMIN";
   const isAssignedReviewer = Boolean(task.assignment?.isMine);
-  const isOpenMarket = task.status === "FUNDED" && !task.assignment && isReviewer;
+  const isOpenMarket = ["FUNDED", "OFFERED"].includes(task.status) && !task.assignment && isReviewer;
   const latestSubmission = task.submissions?.[0] ?? null;
   const latestVerification = task.verificationRuns?.[0] ?? null;
   const failedPayout = task.payments?.find((payment) => payment.type === "PAYOUT" && payment.status === "FAILED");
   const processingPayout = task.payments?.find(
     (payment) => payment.type === "PAYOUT" && ["PROCESSING", "PENDING"].includes(payment.status),
   );
-  const canSubmit = isAssignedReviewer && ["REVIEWER_ASSIGNED", "VERIFICATION_REJECTED"].includes(task.status);
+  const canSubmit =
+    isAssignedReviewer &&
+    ["REVIEWER_ASSIGNED", "ASSIGNED", "IN_PROGRESS", "VERIFICATION_REJECTED", "NEEDS_REVISION"].includes(task.status);
   const canDispute =
     (isRequester || isAssignedReviewer || isAdmin) &&
     !["COMPLETED", "CANCELLED", "DISPUTED", "PAYMENT_PAID", "EXPIRED"].includes(task.status);
@@ -194,6 +242,8 @@ export default function TaskDetailPage() {
           <div className="flex flex-wrap items-center gap-1.5">
             <StatusBadge status={task.status} />
             <RiskBadge risk={task.riskLevel} />
+            <PayoutAvailabilityBadge availability={task.payoutAvailability} />
+            {task.minimumSkillLevel ? <SkillLevelBadge level={task.minimumSkillLevel} /> : null}
             {task.isSeed ? <Badge tone="neutral">Seeded demo task</Badge> : null}
             {task.hasOpenDispute ? <Badge tone="danger">Open dispute</Badge> : null}
             <span className="text-xs">· {formatMoney(task.rewardMinor, task.currency)} reward</span>
@@ -225,7 +275,7 @@ export default function TaskDetailPage() {
           Payment and verification changes are paused until an administrator resolves the dispute.
         </Alert>
       ) : null}
-      {task.status === "VERIFICATION_REJECTED" && isAssignedReviewer ? (
+      {(task.status === "VERIFICATION_REJECTED" || task.status === "NEEDS_REVISION") && isAssignedReviewer ? (
         <Alert tone="danger" icon={<XCircle className="size-4" />} title="Your submission was rejected">
           Read the failed checks below, correct the gap and resubmit. No reward was authorized.
         </Alert>
@@ -282,6 +332,9 @@ export default function TaskDetailPage() {
                         </Badge>
                       ))
                     )}
+                    {task.minimumSkillLevel ? (
+                      <SkillLevelBadge level={task.minimumSkillLevel} />
+                    ) : null}
                   </div>
                   <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Requester</p>
                   <p className="text-xs">{task.requester?.name ?? "Unknown"}</p>
@@ -338,7 +391,7 @@ export default function TaskDetailPage() {
               task={task}
               onSubmit={(input) => submit.mutate(input)}
               submitting={submit.isPending}
-              title="Submit your evidenced answer"
+              title="Submit your evidenced answer & code artifact"
             />
           ) : (
             <Card>
@@ -369,6 +422,46 @@ export default function TaskDetailPage() {
             />
           ) : null}
 
+          {handbackPreview ? (
+            <Card className="border-emerald-500/30">
+              <CardHeader className="border-b border-border pb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <ShieldCheck className="size-4 text-emerald-400" /> Verified Agent Handback Payload
+                  </CardTitle>
+                  <div className="flex items-center gap-1.5">
+                    <Badge tone="success" dot>
+                      {handbackPreview.signature.algorithm}
+                    </Badge>
+                    {handbackPreview.idempotentReplay ? <Badge tone="neutral">Idempotent Replay</Badge> : null}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-4 text-xs">
+                <div className="grid gap-2 rounded-md border border-border bg-muted/30 p-2.5">
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Artifact v{handbackPreview.handback.artifact.version} SHA-256: </span>
+                    <span className="break-all font-mono text-[11px]">{handbackPreview.handback.artifact.sha256Digest}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-muted-foreground">X-TrustToPay-Signature: </span>
+                    <span className="break-all font-mono text-[11px]">{handbackPreview.signature.header}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Handoff Idempotency Key: </span>
+                    <span className="break-all font-mono text-[11px]">{handbackPreview.handback.handoffIdempotencyKey}</span>
+                  </div>
+                </div>
+                <details className="rounded-md border border-border bg-background p-2.5">
+                  <summary className="cursor-pointer font-semibold">Inspect Signed Handback JSON</summary>
+                  <pre className="mt-2 max-h-60 overflow-auto rounded bg-muted/40 p-2.5 font-mono text-[10px]">
+                    {JSON.stringify(handbackPreview.handback, null, 2)}
+                  </pre>
+                </details>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm">
@@ -394,6 +487,12 @@ export default function TaskDetailPage() {
             failedPayout={failedPayout}
             onAccept={() => accept.mutate()}
             accepting={accept.isPending}
+            onDeclineOffer={() => declineOffer.mutate()}
+            decliningOffer={declineOffer.isPending}
+            onDispatchOffers={() => dispatchOffers.mutate()}
+            dispatchingOffers={dispatchOffers.isPending}
+            onFetchHandback={() => fetchHandback.mutate()}
+            fetchingHandback={fetchHandback.isPending}
             onPayout={() => payout.mutate()}
             paying={payout.isPending}
             onReconcile={(paymentId) => reconcile.mutate(paymentId)}
@@ -437,9 +536,13 @@ export default function TaskDetailPage() {
                 <DataRow label="Reward status">
                   {task.reward ? <Badge tone="neutral">{humanize(task.reward.status)}</Badge> : "—"}
                 </DataRow>
+                <DataRow label="Payout mode">
+                  <PayoutAvailabilityBadge availability={task.payoutAvailability} />
+                </DataRow>
                 <DataRow label="Created">{formatDate(task.createdAt)}</DataRow>
                 <DataRow label="Funded">{task.fundedAt ? formatDate(task.fundedAt) : "Not yet"}</DataRow>
                 <DataRow label="Verified">{task.verifiedAt ? formatDate(task.verifiedAt) : "Not yet"}</DataRow>
+                <DataRow label="Handed off">{task.handedOffAt ? formatDate(task.handedOffAt) : "Not yet"}</DataRow>
                 <DataRow label="Completed">{task.completedAt ? formatDate(task.completedAt) : "Not yet"}</DataRow>
                 <DataRow label="Task ID" mono>
                   {task.id}
@@ -457,10 +560,10 @@ export default function TaskDetailPage() {
               </CardHeader>
               <CardContent className="space-y-2 text-xs">
                 {task.reviewerPayout.consent && task.reviewerPayout.email ? (
-                  <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50/60 p-2.5 text-emerald-900">
-                    <BadgeCheck className="mt-0.5 size-4 shrink-0" />
+                  <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-emerald-200">
+                    <BadgeCheck className="mt-0.5 size-4 shrink-0 text-emerald-400" />
                     <div>
-                      <p className="font-medium">Payout consent recorded</p>
+                      <p className="font-medium text-emerald-100">Payout consent recorded</p>
                       <p className="mt-0.5 break-all">{task.reviewerPayout.email}</p>
                     </div>
                   </div>
@@ -531,6 +634,12 @@ function ActionCard({
   failedPayout,
   onAccept,
   accepting,
+  onDeclineOffer,
+  decliningOffer,
+  onDispatchOffers,
+  dispatchingOffers,
+  onFetchHandback,
+  fetchingHandback,
   onPayout,
   paying,
   onReconcile,
@@ -554,6 +663,12 @@ function ActionCard({
   failedPayout?: TaskDetail["payments"][number];
   onAccept: () => void;
   accepting: boolean;
+  onDeclineOffer: () => void;
+  decliningOffer: boolean;
+  onDispatchOffers: () => void;
+  dispatchingOffers: boolean;
+  onFetchHandback: () => void;
+  fetchingHandback: boolean;
   onPayout: () => void;
   paying: boolean;
   onReconcile: (paymentId: string) => void;
@@ -567,12 +682,30 @@ function ActionCard({
   onResume: () => Promise<void>;
 }) {
   const payable = (isRequester || isAdmin) && task.payoutEligible;
-  const resumeAllowed = ["VERIFIED", "PAYMENT_READY", "PAYMENT_PAID", "PAYOUT_FAILED", "ORIGINAL_TASK_RESUMED"].includes(
-    task.status,
-  );
+  const resumeAllowed = [
+    "VERIFIED",
+    "PAYMENT_READY",
+    "PAYMENT_PAID",
+    "PAYOUT_FAILED",
+    "HANDED_OFF",
+    "ORIGINAL_TASK_RESUMED",
+  ].includes(task.status);
+  const handbackAllowed =
+    (isRequester || isAdmin) &&
+    [
+      "VERIFIED",
+      "PAYMENT_READY",
+      "PAYMENT_PROCESSING",
+      "PAYMENT_PAID",
+      "PAYOUT_FAILED",
+      "HANDED_OFF",
+      "ORIGINAL_TASK_RESUMED",
+      "COMPLETED",
+    ].includes(task.status);
   const canDispute =
     (isRequester || isAssignedReviewer || isAdmin) &&
     !["COMPLETED", "CANCELLED", "DISPUTED", "PAYMENT_PAID", "EXPIRED"].includes(task.status);
+  const pendingMyOffer = task.myOffer?.status === "PENDING" ? task.myOffer : null;
 
   return (
     <Card className="border-primary/20">
@@ -606,19 +739,65 @@ function ActionCard({
           </>
         ) : null}
 
+        {["FUNDED", "OFFERED"].includes(task.status) && (isRequester || isAdmin) && !task.assignment ? (
+          <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2.5 text-xs">
+            <p className="font-semibold">Specialist Offer Broadcast</p>
+            <p className="text-muted-foreground">
+              {task.offers && task.offers.length > 0
+                ? `${task.offers.filter((o) => o.status === "PENDING").length} pending expiring offer(s) active.`
+                : "Rank qualified specialists (L1–L3) and dispatch up to 5 parallel expiring offers."}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={onDispatchOffers}
+              loading={dispatchingOffers}
+            >
+              <Sparkles className="size-3.5" /> Dispatch top-5 specialist offers
+            </Button>
+          </div>
+        ) : null}
+
         {isOpenMarket ? (
           <>
-            <p className="text-xs leading-5 text-muted-foreground">
-              This funded task is available. Acceptance is exclusive and transaction-safe: only the first reviewer
-              can claim it.
-            </p>
-            <Button size="sm" className="w-full" onClick={onAccept} loading={accepting}>
-              <ClipboardCheck className="size-3.5" /> Accept review task
-            </Button>
+            {pendingMyOffer ? (
+              <div className="space-y-1.5 rounded-md border border-primary/40 bg-primary/5 p-2.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-primary">
+                    Top-5 Offer #{pendingMyOffer.rank} ({pendingMyOffer.score} pts)
+                  </span>
+                  <Badge tone="accent">Batch #{pendingMyOffer.batchNumber}</Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Expires {formatDate(pendingMyOffer.expiresAt)}. First specialist to accept wins atomically.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs leading-5 text-muted-foreground">
+                This funded task is available. Acceptance is exclusive and transaction-safe: only the first reviewer
+                can claim it.
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button size="sm" className="flex-1" onClick={onAccept} loading={accepting}>
+                <ClipboardCheck className="size-3.5" /> Accept review task
+              </Button>
+              {pendingMyOffer ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onDeclineOffer}
+                  loading={decliningOffer}
+                >
+                  Decline
+                </Button>
+              ) : null}
+            </div>
           </>
         ) : null}
 
-        {task.status === "FUNDED" && isAssignedReviewer ? (
+        {["FUNDED", "OFFERED"].includes(task.status) && isAssignedReviewer ? (
           <p className="text-xs leading-5 text-muted-foreground">
             You accepted this task. Submit your answer and evidence below.
           </p>
@@ -630,18 +809,42 @@ function ActionCard({
           </div>
         ) : null}
 
-        {task.status === "PAYMENT_READY" && payable ? (
+        {payable ? (
           <>
-            <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs leading-5 text-emerald-950">
-              <p className="font-semibold">Verified and authorized</p>
-              <p>
+            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs leading-5 text-emerald-100">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <p className="font-semibold text-emerald-300">Verified and authorized</p>
+                <PayoutAvailabilityBadge availability={task.payoutAvailability} />
+              </div>
+              <p className="mt-1">
                 Release {formatMoney(task.rewardMinor, task.currency)} to {task.assignment?.reviewer.name ?? "the reviewer"}.
-                {" "}In demo mode this is a simulated payout.
+                {" "}
+                {task.payoutAvailability === "DEMO_SIMULATED"
+                  ? "In demo mode this is a labelled simulated payout."
+                  : task.payoutAvailability === "PAYOUT_UNAVAILABLE"
+                    ? "PayPal Payouts is disabled for Indian Sandbox merchant accounts unless PAYPAL_PAYOUTS_ENABLED=true or DEMO_MODE=true."
+                    : "Calls PayPal Sandbox Payouts v1."}
               </p>
             </div>
-            <Button size="sm" className="w-full" onClick={onPayout} loading={paying}>
-              <Wallet className="size-3.5" /> Release reviewer payout
+            <Button
+              size="sm"
+              className="w-full"
+              onClick={onPayout}
+              loading={paying}
+              disabled={task.payoutAvailability === "PAYOUT_UNAVAILABLE"}
+            >
+              <Wallet className="size-3.5" />{" "}
+              {task.payoutAvailability === "PAYOUT_UNAVAILABLE"
+                ? "Payout Unavailable (Sandbox Restriction)"
+                : task.payoutAvailability === "DEMO_SIMULATED"
+                  ? "Release Simulated Payout"
+                  : "Release Reviewer Payout"}
             </Button>
+            {task.payoutAvailability === "PAYOUT_UNAVAILABLE" ? (
+              <Alert tone="warning">
+                PayPal Sandbox Checkout works with Indian merchant accounts, but Payouts requires separate regional approval (`PAYPAL_PAYOUTS_ENABLED=false`). The verified deliverable and Agent Handback remain available below.
+              </Alert>
+            ) : null}
             {!task.reviewerPayout?.consent || !task.reviewerPayout.email ? (
               <Alert tone="warning">The reviewer has not completed payout consent and a PayPal email.</Alert>
             ) : null}
@@ -668,20 +871,25 @@ function ActionCard({
         ) : null}
 
         {task.status === "PAYMENT_PAID" ? (
-          <>
-            <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs text-emerald-950">
-              <p className="font-semibold">Reviewer paid</p>
-              <p className="mt-0.5">The verified answer can now be delivered to the AI session.</p>
-            </div>
-            {resumeAllowed ? (
-              <Button size="sm" className="w-full" onClick={onResume}>
-                <CheckCircle2 className="size-3.5" /> Resume AI session
-              </Button>
-            ) : null}
-          </>
+          <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-100">
+            <p className="font-semibold text-emerald-300">Reviewer paid</p>
+            <p className="mt-0.5">The verified answer can now be delivered to the AI session.</p>
+          </div>
         ) : null}
 
-        {["VERIFIED", "ORIGINAL_TASK_RESUMED"].includes(task.status) ? (
+        {handbackAllowed ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={onFetchHandback}
+            loading={fetchingHandback}
+          >
+            <ShieldCheck className="size-3.5" /> Retrieve signed Agent Handback
+          </Button>
+        ) : null}
+
+        {resumeAllowed && task.session ? (
           <Button size="sm" className="w-full" onClick={onResume}>
             <CheckCircle2 className="size-3.5" /> Resume AI session
           </Button>
@@ -714,15 +922,10 @@ function ActionCard({
                 ) : null}
               </div>
             ) : null}
-            {resumeAllowed ? (
-              <Button size="sm" className="w-full" variant="secondary" onClick={onResume}>
-                <CheckCircle2 className="size-3.5" /> Deliver verified answer anyway
-              </Button>
-            ) : null}
           </>
         ) : null}
 
-        {["NEEDS_MANUAL_REVIEW", "VERIFICATION_REJECTED"].includes(task.status) ? (
+        {["NEEDS_MANUAL_REVIEW", "VERIFICATION_REJECTED", "NEEDS_REVISION"].includes(task.status) ? (
           <div className="rounded-md border border-border bg-muted/30 p-2.5 text-xs leading-5 text-muted-foreground">
             {task.status === "NEEDS_MANUAL_REVIEW"
               ? "An administrator must decide whether to pass or reject the submission."
@@ -731,8 +934,8 @@ function ActionCard({
         ) : null}
 
         {task.status === "COMPLETED" ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs leading-5 text-emerald-950">
-            <p className="font-semibold">Task completed</p>
+          <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs leading-5 text-emerald-100">
+            <p className="font-semibold text-emerald-300">Task completed</p>
             <p>The verified answer was delivered to the AI session.</p>
           </div>
         ) : null}
@@ -817,10 +1020,17 @@ function PaymentsCard({
           visible.map((payment) => (
             <div key={payment.id} className="rounded-md border border-border bg-background p-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-xs font-semibold">{humanize(payment.type)}</span>
                   <PaymentStatusBadge status={payment.status} />
                   <ModeBadge mode={payment.mode} />
+                  {payment.type === "PAYOUT" ? (
+                    <PayoutAvailabilityBadge
+                      availability={
+                        payment.payoutAvailability ?? (payment.mode === "SIMULATED" ? "DEMO_SIMULATED" : undefined)
+                      }
+                    />
+                  ) : null}
                 </div>
                 <span className="text-xs font-semibold tabular-nums">{payment.amountDisplay}</span>
               </div>
@@ -834,7 +1044,7 @@ function PaymentsCard({
                 <p className="truncate font-mono text-[10px] text-muted-foreground">Batch {payment.payoutBatchId}</p>
               ) : null}
               {payment.failureMessage ? (
-                <p className="mt-1 text-[10px] leading-4 text-red-700">{payment.failureMessage}</p>
+                <p className="mt-1 text-[10px] leading-4 text-red-400">{payment.failureMessage}</p>
               ) : null}
               {(isAdmin || isRequester) && ["FAILED", "PROCESSING", "PENDING"].includes(payment.status) ? (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -891,11 +1101,67 @@ function VerificationCard({
           <CardTitle className="flex items-center gap-2">
             <FileCheck2 className="size-4 text-primary" /> Independent verification
           </CardTitle>
-          <VerificationBadge status={verification.status} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <VerificationBadge status={verification.status} />
+            {verification.securityVerdict ? (
+              <SecurityVerdictBadge verdict={verification.securityVerdict} />
+            ) : null}
+            {verification.artifactVersion ? (
+              <Badge tone="neutral">Artifact v{verification.artifactVersion}</Badge>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
         <p className="text-sm leading-6">{verification.decisionReason}</p>
+
+        {verification.artifactSha256 ? (
+          <div className="rounded-md border border-border bg-muted/30 p-2 text-xs">
+            <span className="font-semibold text-muted-foreground">Artifact SHA-256: </span>
+            <span className="break-all font-mono text-[11px]">{verification.artifactSha256}</span>
+          </div>
+        ) : null}
+
+        {verification.securityReview ? (
+          <div className="rounded-md border border-border bg-muted/20 p-3 text-xs space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="size-3.5 text-primary" /> Layered Security Gate
+              </p>
+              <SecurityVerdictBadge verdict={verification.securityReview.verdict} />
+            </div>
+            <p className="text-muted-foreground">{verification.securityReview.summary}</p>
+            {verification.securityReview.gemini ? (
+              <p className="text-[11px] text-muted-foreground">
+                Gemini model: <span className="font-mono">{verification.securityReview.gemini.model}</span> · Confidence:{" "}
+                {Math.round(verification.securityReview.gemini.confidence * 100)}%
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {verification.executionSummary ? (
+          <div className="rounded-md border border-border bg-muted/20 p-3 text-xs space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold flex items-center gap-1.5">
+                <Terminal className="size-3.5 text-primary" /> Isolated Execution Runner
+              </p>
+              <div className="flex items-center gap-1.5">
+                <Badge tone={verification.executionSummary.passed ? "success" : "danger"} dot>
+                  {verification.executionSummary.verdict}
+                </Badge>
+                <Badge tone="neutral">{verification.executionSummary.mode}</Badge>
+              </div>
+            </div>
+            <p className="text-muted-foreground">{verification.executionSummary.summary}</p>
+            {verification.executionSummary.stdout ? (
+              <pre className="max-h-32 overflow-auto rounded border border-border bg-background p-2 font-mono text-[10px]">
+                {verification.executionSummary.stdout}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -903,11 +1169,11 @@ function VerificationCard({
             </p>
             <div className="space-y-1.5">
               {verification.checksPassed.map((check) => (
-                <div key={check.id} className="flex gap-1.5 rounded border border-emerald-200 bg-emerald-50/50 p-2">
-                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />
+                <div key={check.id} className="flex gap-1.5 rounded border border-emerald-500/30 bg-emerald-500/10 p-2">
+                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-400" />
                   <div>
-                    <p className="text-[11px] font-medium text-emerald-950">{check.label}</p>
-                    <p className="text-[10px] leading-4 text-emerald-900/80">{check.detail}</p>
+                    <p className="text-[11px] font-medium text-emerald-100">{check.label}</p>
+                    <p className="text-[10px] leading-4 text-emerald-200/80">{check.detail}</p>
                   </div>
                 </div>
               ))}
@@ -929,18 +1195,18 @@ function VerificationCard({
                     className={cn(
                       "flex gap-1.5 rounded border p-2",
                       check.severity === "HARD"
-                        ? "border-red-200 bg-red-50/50"
-                        : "border-amber-200 bg-amber-50/50",
+                        ? "border-red-500/30 bg-red-500/10"
+                        : "border-amber-500/30 bg-amber-500/10",
                     )}
                   >
                     <ShieldAlert
                       className={cn(
                         "mt-0.5 size-3.5 shrink-0",
-                        check.severity === "HARD" ? "text-red-700" : "text-amber-700",
+                        check.severity === "HARD" ? "text-red-400" : "text-amber-400",
                       )}
                     />
                     <div>
-                      <p className="text-[11px] font-medium">{check.label}</p>
+                      <p className="text-[11px] font-medium text-foreground">{check.label}</p>
                       <p className="text-[10px] leading-4 text-muted-foreground">{check.detail}</p>
                       <Badge tone={check.severity === "HARD" ? "danger" : "warning"} className="mt-1">
                         {check.severity === "HARD" ? "Required" : "Risk review"}
@@ -978,11 +1244,11 @@ function VerificationCard({
         ) : null}
 
         {isAdmin && taskStatus === "NEEDS_MANUAL_REVIEW" ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-950">
-              <ShieldAlert className="size-3.5" /> Administrator decision required
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-200">
+              <ShieldAlert className="size-3.5 text-amber-400" /> Administrator decision required
             </p>
-            <p className="mt-1 text-[11px] leading-5 text-amber-900">
+            <p className="mt-1 text-[11px] leading-5 text-amber-100/90">
               The automated checks passed, but a risk check requires a human decision. A note is mandatory.
             </p>
             <div className="mt-3 space-y-2">
@@ -1048,21 +1314,66 @@ function SubmissionCard({
   submitting: boolean;
   task: TaskDetail;
 }) {
+  const artifact = submission.artifact ?? task.artifacts?.[0] ?? null;
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="border-b border-border pb-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
-              <ClipboardCheck className="size-4 text-primary" /> Reviewer submission
+              <ClipboardCheck className="size-4 text-primary" /> Reviewer submission{" "}
+              {submission.version ? `v${submission.version}` : ""}
             </CardTitle>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {verification ? <VerificationBadge status={verification.status} /> : null}
+              {artifact ? <Badge tone="info">Artifact v{artifact.version}</Badge> : null}
               <Badge tone="neutral">{submission.confidenceScore}% confidence</Badge>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3 pt-4">
+          {artifact ? (
+            <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="flex items-center gap-1.5 font-semibold">
+                  <FileCode2 className="size-3.5 text-primary" /> Immutable Code Artifact (v{artifact.version})
+                </p>
+                <span className="text-[11px] text-muted-foreground">
+                  {artifact.fileCount} file{artifact.fileCount === 1 ? "" : "s"} · {artifact.totalSizeBytes} bytes
+                </span>
+              </div>
+              <p className="break-all font-mono text-[10px] text-muted-foreground">
+                SHA-256: {artifact.sha256Digest}
+              </p>
+              {artifact.files && artifact.files.length > 0 ? (
+                <div className="space-y-1.5 pt-1">
+                  {artifact.files.map((file) => (
+                    <details key={file.path} className="rounded border border-border bg-background p-2">
+                      <summary className="flex cursor-pointer items-center justify-between gap-2 font-mono text-[11px] font-medium">
+                        <span>{file.path}</span>
+                        <span className="text-[10px] text-muted-foreground">{file.sizeBytes} B</span>
+                      </summary>
+                      <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]">
+                        {file.content}
+                      </pre>
+                    </details>
+                  ))}
+                </div>
+              ) : null}
+              {artifact.patchText ? (
+                <details className="rounded border border-border bg-background p-2">
+                  <summary className="cursor-pointer font-mono text-[11px] font-medium">
+                    Unified Git Diff Patch
+                  </summary>
+                  <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]">
+                    {artifact.patchText}
+                  </pre>
+                </details>
+              ) : null}
+            </div>
+          ) : null}
+
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Answer</p>
             <p className="mt-1 whitespace-pre-line text-sm leading-6">{submission.answer}</p>
@@ -1096,7 +1407,7 @@ function SubmissionCard({
           task={task}
           onSubmit={onSubmit}
           submitting={submitting}
-          title="Correct and resubmit"
+          title="Correct and resubmit (creates new artifact version)"
           initial={submission}
         />
       ) : null}
@@ -1126,6 +1437,9 @@ function sampleAnswerFor(task: TaskDetail) {
       confidenceScore: 89,
       sourceUrl: "https://nodejs.org/api/globals.html",
       evidenceNotes: `Independent source, quoted excerpt: "${programmingQuote}" I checked the runtime version and configuration against the supplied worker-pool.ts excerpt, then traced the await call that has no timeout.`,
+      filePath: "src/worker-pool.ts",
+      fileContent: `export async function fetchWithTimeout(url: string, timeoutMs = 30_000): Promise<Response> {\n  const controller = new AbortController();\n  const timer = setTimeout(() => controller.abort(), timeoutMs);\n  try {\n    return await fetch(url, { signal: controller.signal });\n  } finally {\n    clearTimeout(timer);\n  }\n}\n`,
+      patchText: `--- a/src/worker-pool.ts\n+++ b/src/worker-pool.ts\n@@ -12,3 +12,6 @@\n-  const response = await fetch(job.endpoint);\n+  const controller = new AbortController();\n+  const timer = setTimeout(() => controller.abort(), 30_000);\n+  const response = await fetch(job.endpoint, { signal: controller.signal }).finally(() => clearTimeout(timer));\n`,
     };
   }
 
@@ -1141,6 +1455,9 @@ function sampleAnswerFor(task: TaskDetail) {
       confidenceScore: 92,
       sourceUrl: "https://eips.ethereum.org/EIPS/eip-2612",
       evidenceNotes: `Independent source, quoted excerpt: "${cryptoQuote}" I checked the chain ID, signature, nonce and replay details in the supplied Vault.sol audit notes against the deployment checklist.`,
+      filePath: "",
+      fileContent: "",
+      patchText: "",
     };
   }
 
@@ -1156,6 +1473,9 @@ function sampleAnswerFor(task: TaskDetail) {
       confidenceScore: 87,
       sourceUrl: "https://aws.amazon.com/message-queue/",
       evidenceNotes: `Independent source, quoted excerpt: "${conceptualQuote}" I checked the throughput, latency and operational cost figures against the supplied benchmark before recommending against the queue.`,
+      filePath: "",
+      fileContent: "",
+      patchText: "",
     };
   }
 
@@ -1215,6 +1535,9 @@ function sampleAnswerFor(task: TaskDetail) {
     confidenceScore: 88,
     sourceUrl,
     evidenceNotes: `Independent source, quoted excerpt: "${quote}" I checked the rated per-port output against the device requirement and did not rely on a headline wattage alone.`,
+    filePath: "",
+    fileContent: "",
+    patchText: "",
   };
 }
 
@@ -1236,18 +1559,24 @@ function SubmissionForm({
   const isProgramming = category === "PROGRAMMING";
   const isCrypto = category === "CRYPTO";
   const isConceptual = category === "CONCEPTUAL";
+  const initialFile = initial?.artifact?.files?.[0];
   const [answer, setAnswer] = useState(initial?.answer ?? "");
   const [explanation, setExplanation] = useState(initial?.explanation ?? "");
   const [confidence, setConfidence] = useState(initial?.confidenceScore ?? 80);
   const [sourceUrl, setSourceUrl] = useState(initial?.sourceUrl ?? "");
   const [evidenceNotes, setEvidenceNotes] = useState(initial?.evidenceNotes ?? "");
+  const [filePath, setFilePath] = useState(initialFile?.path ?? "");
+  const [fileContent, setFileContent] = useState(initialFile?.content ?? "");
+  const [patchText, setPatchText] = useState(initial?.artifact?.patchText ?? "");
   const [localError, setLocalError] = useState<string | null>(null);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
     setLocalError(null);
-    if (answer.trim().length < 20) {
-      setLocalError("The answer must be at least 20 characters.");
+    const hasCodeFile = Boolean(filePath.trim() && fileContent.trim());
+    const hasPatch = Boolean(patchText.trim());
+    if (!hasCodeFile && !hasPatch && answer.trim().length < 20) {
+      setLocalError("The answer must be at least 20 characters when no code files or unified diff patch are attached.");
       return;
     }
     if (explanation.trim().length < 20) {
@@ -1255,11 +1584,13 @@ function SubmissionForm({
       return;
     }
     onSubmit({
-      answer: answer.trim(),
+      answer: answer.trim() || fileContent.trim() || patchText.trim(),
       explanation: explanation.trim(),
       confidenceScore: confidence,
       sourceUrl: sourceUrl.trim() || undefined,
       evidenceNotes: evidenceNotes.trim() || undefined,
+      files: hasCodeFile ? [{ path: filePath.trim(), content: fileContent }] : undefined,
+      patchText: hasPatch ? patchText : undefined,
     });
   }
 
@@ -1280,6 +1611,9 @@ function SubmissionForm({
               setConfidence(sample.confidenceScore);
               setSourceUrl(sample.sourceUrl);
               setEvidenceNotes(sample.evidenceNotes);
+              if (sample.filePath) setFilePath(sample.filePath);
+              if (sample.fileContent) setFileContent(sample.fileContent);
+              if (sample.patchText) setPatchText(sample.patchText);
               setLocalError(null);
             }}
           >
@@ -1326,6 +1660,46 @@ function SubmissionForm({
               }
             />
           </Field>
+
+          <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
+            <p className="flex items-center gap-1.5 text-xs font-semibold">
+              <Code2 className="size-3.5 text-primary" /> Code Deliverable & Unified Diff Artifact (Optional)
+            </p>
+            <Field
+              label="Code file path"
+              htmlFor="submission-file-path"
+              hint="Relative path (e.g. src/worker-pool.ts). Path traversal and executables are rejected."
+            >
+              <Input
+                id="submission-file-path"
+                value={filePath}
+                onChange={(event) => setFilePath(event.target.value)}
+                placeholder="src/worker-pool.ts"
+                className="font-mono text-xs"
+              />
+            </Field>
+            <Field label="Code file content" htmlFor="submission-file-content" hint="Canonicalized into the immutable SHA-256 artifact digest.">
+              <Textarea
+                id="submission-file-content"
+                value={fileContent}
+                onChange={(event) => setFileContent(event.target.value)}
+                rows={4}
+                placeholder="export async function fetchWithTimeout(...) { ... }"
+                className="font-mono text-xs"
+              />
+            </Field>
+            <Field label="Unified git diff patch" htmlFor="submission-patch" hint="Optional unified diff patch (--- a/... +++ b/...).">
+              <Textarea
+                id="submission-patch"
+                value={patchText}
+                onChange={(event) => setPatchText(event.target.value)}
+                rows={3}
+                placeholder="--- a/src/worker-pool.ts&#10;+++ b/src/worker-pool.ts"
+                className="font-mono text-xs"
+              />
+            </Field>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
             <Field label="Evidence source URL" htmlFor="submission-source" hint="Must be a public HTTPS URL. A bare link is not proof.">
               <Input
@@ -1374,8 +1748,7 @@ function SubmissionForm({
           </Field>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
             <p className="max-w-md text-[10px] leading-4 text-muted-foreground">
-              Submitting runs independent verification immediately. A failed submission can be corrected and
-              resubmitted; a passed submission cannot be verified by its own reviewer.
+              Submitting computes an immutable SHA-256 artifact digest and runs deterministic scanners, the Gemini security gate, and the isolated runner immediately.
             </p>
             <Button type="submit" loading={submitting}>
               <Send className="size-3.5" /> Submit for verification

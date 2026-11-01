@@ -4,7 +4,7 @@ import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { AppError, asyncHandler } from "../lib/errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { createFundingOrder, captureFundingOrder, releasePayout, reconcilePayment, retryPayment, serializePayment } from "../services/payments.js";
+import { createFundingOrder, captureFundingOrder, releasePayout, reconcilePayment, retryPayment, serializePayment, paymentSummaryForTask } from "../services/payments.js";
 import { paymentRateLimit } from "../middleware/security.js";
 import { paginated, paginationFrom } from "../lib/http.js";
 import { audit } from "../lib/audit.js";
@@ -98,6 +98,14 @@ router.get(
         pageSize,
       ),
     );
+  }),
+);
+
+router.get(
+  "/summary/:taskId",
+  asyncHandler(async (req, res) => {
+    const summary = await paymentSummaryForTask(req.params.taskId);
+    res.json({ summary });
   }),
 );
 

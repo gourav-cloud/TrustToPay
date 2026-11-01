@@ -5,45 +5,48 @@ import {
   BookOpen,
   Bug,
   Lock,
-  Mail,
   Plug,
   ShieldAlert,
   Terminal,
 } from "lucide-react";
 import { PublicHeader, MarketingFooter } from "@/components/layout/public-layout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function ContactPage() {
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="min-h-dvh bg-[#080C14] text-[#F1F5F9]">
       <PublicHeader />
       <main className="container max-w-3xl py-12">
-        <Badge tone="info">Support</Badge>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight">Contact and support</h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          TrustToPay is a hackathon reference build. There is no hosted production service and no monitored
-          support inbox. The guidance below helps you route a question without exposing secrets.
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3B82F6]">
+          Support &amp; Security Operations
+        </p>
+        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-[#F1F5F9]">
+          Operational diagnostics &amp; security disclosure
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-[#94A3B8]">
+          TrustToPay is a self-hosted developer infrastructure platform. Use the resources below to inspect live
+          integration telemetry, troubleshoot environment configuration, and follow safe security disclosure practices.
         </p>
 
         <div className="mt-8 space-y-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
-                <Terminal className="size-4 text-primary" /> Setup or evaluation questions
+                <Terminal className="size-4 text-[#3B82F6]" /> Environment &amp; integration diagnostics
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
+            <CardContent className="space-y-3 text-sm leading-6 text-[#94A3B8]">
               <p>
-                Start with the in-app documentation and the live integration status. Most setup problems are a missing
-                environment variable, a backend that has not been restarted after a config change, or a seed that has
-                not been run.
+                Start with the technical documentation and live integration status console. Most configuration issues
+                are caused by missing environment variables, a server process that needs a restart after updating{" "}
+                <code className="font-mono text-xs text-[#F1F5F9]">.env</code>, or unconfigured PayPal Sandbox
+                credentials.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button asChild size="sm" variant="outline">
                   <Link to="/app/docs">
-                    <BookOpen className="size-3.5" /> Read the docs
+                    <BookOpen className="size-3.5" /> Read technical docs
                   </Link>
                 </Button>
                 <Button asChild size="sm" variant="outline">
@@ -52,56 +55,51 @@ export default function ContactPage() {
                   </Link>
                 </Button>
               </div>
-              <p className="rounded-md border border-border bg-muted/30 p-3 text-[11px] leading-5">
-                For a hackathon submission, use the submission channel provided to reviewers or judges. This page does
-                not publish a maintainer email address because none is bundled with the project.
-              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
-                <Bug className="size-4 text-primary" /> Bug reports
+                <Bug className="size-4 text-[#3B82F6]" /> Issue reporting guidelines
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
+            <CardContent className="space-y-3 text-sm leading-6 text-[#94A3B8]">
               <p>
-                If you fork or publish this project, add the repository&apos;s issue tracker to this page. A useful
-                report includes the command you ran, the environment, the exact error, and whether you were in demo or
-                Sandbox mode. Remove cookies, credentials, client secrets and personal data before posting logs.
+                When filing an engineering issue in your deployment repository, include the exact API route or CLI
+                command, the active payment mode (<code className="font-mono text-xs text-[#F1F5F9]">SIMULATED</code>{" "}
+                or <code className="font-mono text-xs text-[#F1F5F9]">SANDBOX</code>), and the structured error code.
+                Always redact session tokens, API keys, and PayPal client secrets before sharing logs.
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-amber-200">
+          <Card className="border-amber-500/30">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <ShieldAlert className="size-4 text-amber-700" /> Security disclosure
+              <CardTitle className="flex items-center gap-2 text-sm text-amber-300">
+                <ShieldAlert className="size-4 text-amber-400" /> Security disclosure policy
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
+            <CardContent className="space-y-3 text-sm leading-6 text-[#94A3B8]">
               <p>
-                Do not open a public issue containing a secret, an exploit against a live deployment, or personal data.
-                Report the issue privately through the channel used to distribute this build, and include a minimal
+                Never open a public issue containing active credentials, session tokens, or exploit payloads against a
+                hosted environment. Route vulnerability reports privately to the deployment operator with a minimal
                 reproduction.
               </p>
               <p>
-                This build is Sandbox-only and deliberately rejects live PayPal endpoints. A report that only claims
-                &quot;the demo moved no money&quot; is expected behaviour, not a vulnerability.
+                This platform enforces strict PayPal Sandbox guardrails and rejects live-money endpoints by design.
               </p>
-              <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50/70 p-3 text-[11px] leading-5 text-amber-900">
-                <Lock className="mt-0.5 size-3.5 shrink-0" />
-                Never send API secrets, PayPal credentials or session cookies in chat, screenshots or issue comments.
+              <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] leading-5 text-amber-200">
+                <Lock className="mt-0.5 size-3.5 shrink-0 text-amber-400" />
+                Never transmit API secrets, PayPal credentials, or session tokens in screenshots or issue comments.
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-dashed">
+          <Card>
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Mail className="size-4 text-primary" />
-                Prefer to explore first? The demo requires no credentials.
+              <div className="text-xs text-[#94A3B8]">
+                Ready to inspect the platform workflow or configure your workspace?
               </div>
               <div className="flex gap-2">
                 <Button asChild size="sm" variant="outline">
@@ -111,7 +109,7 @@ export default function ContactPage() {
                 </Button>
                 <Button asChild size="sm">
                   <Link to="/login">
-                    Open demo <ArrowRight className="size-3.5" />
+                    Sign in <ArrowRight className="size-3.5" />
                   </Link>
                 </Button>
               </div>

@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, CalendarClock, UserRound } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import type { TaskSummary } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badges";
 import { formatDate, formatMoney, truncate } from "@/lib/format";
@@ -20,60 +19,82 @@ export function TaskCard({
   className?: string;
 }) {
   const target = href ?? `/app/tasks/${task.id}`;
+  const pendingOffer = task.myOffer?.status === "PENDING" ? task.myOffer : null;
+
   return (
-    <Card className={cn("group transition-colors hover:border-primary/30", className)}>
-      <Link to={target} className="block p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <p className="line-clamp-2 text-sm font-semibold leading-5 group-hover:text-primary">{task.title}</p>
+    <Card
+      className={cn(
+        "group border-border bg-card transition-colors duration-150 hover:border-primary/40 hover:bg-secondary/40",
+        pendingOffer && "border-primary/40",
+        className,
+      )}
+    >
+      <Link to={target} className="block p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>{categoryLabel(task.category)}</span>
+              {task.minimumSkillLevel ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>Level {task.minimumSkillLevel} Required</span>
+                </>
+              ) : null}
+              {task.assignment?.isMine ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-medium text-emerald-400">Assigned to you</span>
+                </>
+              ) : null}
+              {pendingOffer ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-medium text-blue-400">Direct Offer #{pendingOffer.rank}</span>
+                </>
+              ) : null}
+            </div>
+            <h3 className="line-clamp-1 font-display text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+              {task.title}
+            </h3>
             <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
-              {truncate(task.question, 150)}
+              {truncate(task.question, 155)}
             </p>
           </div>
-          <ArrowUpRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <StatusBadge status={task.status} />
-          <Badge tone="neutral">{categoryLabel(task.category)}</Badge>
-          {task.isSeed ? <Badge tone="neutral">Seeded</Badge> : null}
-          {task.assignment?.isMine ? <Badge tone="accent">Assigned to you</Badge> : null}
-          {task.riskLevel === "HIGH" ? <Badge tone="danger">High risk</Badge> : null}
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <CalendarClock className="size-3" /> {formatDate(task.createdAt)}
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+              {formatMoney(task.rewardMinor, task.currency)}
             </span>
-            {showRequester && task.requester ? (
-              <span className="inline-flex items-center gap-1">
-                <UserRound className="size-3" /> {task.requester.name}
-              </span>
-            ) : null}
+            <ArrowUpRight className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />
           </div>
-          <span className="text-sm font-semibold tabular-nums">
-            {formatMoney(task.rewardMinor, task.currency)}
-          </span>
         </div>
 
-        {task.requiredSkills.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {task.requiredSkills.slice(0, 3).map((skill) => (
-              <span
-                key={skill}
-                className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-              >
-                {skill}
-              </span>
-            ))}
-            {task.requiredSkills.length > 3 ? (
-              <span className="px-1 text-[10px] text-muted-foreground">
-                +{task.requiredSkills.length - 3} more
-              </span>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <StatusBadge status={task.status} />
+            <span aria-hidden="true">·</span>
+            <span className="tabular-nums">{formatDate(task.createdAt)}</span>
+            {showRequester && task.requester ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{task.requester.name}</span>
+              </>
             ) : null}
           </div>
-        ) : null}
+
+          {task.requiredSkills.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              {task.requiredSkills.slice(0, 3).map((skill, idx) => (
+                <span key={skill} className="inline-flex items-center gap-1.5">
+                  {idx > 0 ? <span aria-hidden="true">·</span> : null}
+                  <span className="font-mono text-foreground/85">{skill}</span>
+                </span>
+              ))}
+              {task.requiredSkills.length > 3 ? (
+                <span>+{task.requiredSkills.length - 3}</span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </Link>
     </Card>
   );

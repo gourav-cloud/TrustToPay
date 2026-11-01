@@ -1,5 +1,16 @@
 import type { AnalysisOutput } from "./ai/schema.js";
+import { config } from "../config.js";
 import { normalizeCategory, type Category } from "../lib/categories.js";
+import {
+  runLayeredGeminiSecurityGate,
+  type GeminiContentGenerator,
+  type LayeredSecurityGateResult,
+} from "./security/geminiReviewService.js";
+import {
+  executeIsolatedVerificationTests,
+  type IsolatedSandboxAdapter,
+} from "./execution/runner.js";
+import type { IsolatedExecutionResult } from "./execution/fixtureRunner.js";
 
 export type VerificationCheck = {
   id: string;
@@ -17,9 +28,13 @@ export type VerificationResult = {
   evidenceReferences: { label: string; url: string | null; quote?: string }[];
   requiresAdminReview: boolean;
   score: number;
+  securityVerdict?: string | null;
+  securityReview?: LayeredSecurityGateResult | null;
+  executionSummary?: IsolatedExecutionResult | null;
 };
 
 export type VerificationInput = {
+  title?: string;
   question: string;
   acceptanceCriteria: string;
   category: string;
@@ -35,8 +50,17 @@ export type VerificationInput = {
     sourceUrl: string | null;
     evidenceNotes: string | null;
   };
+  artifact?: {
+    version?: number | null;
+    sha256Digest?: string | null;
+    files?: { path: string; content: string }[];
+    patchText?: string | null;
+  } | null;
   suppliedEvidence: { title: string; url: string | null; sourceType: string }[];
   analysis: AnalysisOutput | null;
+  customGeminiGenerator?: GeminiContentGenerator;
+  forceGeminiCall?: boolean;
+  sandboxAdapter?: IsolatedSandboxAdapter;
 };
 
 const STOPWORDS = new Set([
@@ -103,7 +127,9 @@ function check(
  */
 export function verifySubmission(input: VerificationInput): VerificationResult {
   const { submission } = input;
-  const combined = `${submission.answer}\n${submission.explanation}\n${submission.evidenceNotes ?? ""}`;
+  const artifactText =
+    input.artifact?.files?.map((f) => `${f.path}\n${f.content}`).join("\n") ?? "";
+  const combined = `${submission.answer}\n${submission.explanation}\n${submission.evidenceNotes ?? ""}\n${artifactText}`;
   const lower = combined.toLowerCase();
   const checks: VerificationCheck[] = [];
 
@@ -361,3 +387,143 @@ export function verifySubmission(input: VerificationInput): VerificationResult {
     score: Math.round((passedChecks.length / checks.length) * 100),
   };
 }
+
+/**
+ * Multi-stage verification combining deterministic evidence/criteria checks with
+ * the Phase 5 Deterministic Secret/Malicious Scanner and Layered Gemini Security Gate.
+ */
+export async function verifySubmissionWithSecurityGate(input: VerificationInput): Promise<VerificationResult> {
+  const baseResult = verifySubmission(input);
+  if (!config.codeReviewEnabled) {
+    return baseResult;
+  }
+
+  const files =
+    input.artifact?.files && input.artifact.files.length > 0
+      ? input.artifact.files
+      : [{ path: "DELIVERABLE.md", content: input.submission.answer }];
+
+  const securityReview = await runLayeredGeminiSecurityGate({
+    taskTitle: input.title,
+    taskQuestion: input.question,
+    acceptanceCriteria: input.acceptanceCriteria,
+    artifactVersion: input.artifact?.version ?? null,
+    artifactSha256: input.artifact?.sha256Digest ?? null,
+    files,
+    patchText: input.artifact?.patchText ?? null,
+    answerText: input.submission.answer,
+    explanationText: input.submission.explanation,
+    customGenerator: input.customGeminiGenerator,
+    forceGeminiCall: input.forceGeminiCall,
+  });
+
+  const additionalChecks: VerificationCheck[] = [];
+
+  additionalChecks.push(
+    check(
+      "deterministic_security_scan",
+      "No hardcoded secrets or destructive shell payloads",
+      !securityReview.deterministicBlocked,
+      securityReview.deterministicBlocked
+        ? `Deterministic security scanner blocked deliverable: ${securityReview.findings
+            .map((f) => `${f.category} in ${f.filePath}`)
+            .join(", ")}.`
+        : "Deterministic pre-scan found no exposed API keys, private keys, or destructive shell commands.",
+      "HARD",
+    ),
+  );
+
+  let executionSummary: IsolatedExecutionResult | null = null;
+
+  if (securityReview.verdict === "BLOCK") {
+    additionalChecks.push(
+      check(
+        "gemini_security_gate",
+        "Layered Gemini security gate",
+        false,
+        `Security gate verdict BLOCK (${securityReview.riskLevel}): ${securityReview.recommendedAction}`,
+        "HARD",
+      ),
+    );
+  } else if (securityReview.verdict === "NEEDS_HUMAN_REVIEW" || securityReview.failClosedTriggered) {
+    additionalChecks.push(
+      check(
+        "gemini_security_gate",
+        "Layered Gemini security gate",
+        false,
+        `Security gate requires administrator review (${securityReview.status}): ${securityReview.recommendedAction}`,
+        "SOFT",
+      ),
+    );
+  } else {
+    additionalChecks.push(
+      check(
+        "gemini_security_gate",
+        "Layered Gemini security gate",
+        true,
+        `Security gate passed (${securityReview.engine}, risk: ${securityReview.riskLevel}).`,
+        "HARD",
+      ),
+    );
+
+    executionSummary = await executeIsolatedVerificationTests({
+      artifactVersion: input.artifact?.version ?? 1,
+      artifactSha256: input.artifact?.sha256Digest ?? "unversioned",
+      securityVerdict: securityReview.verdict,
+      files,
+      patchText: input.artifact?.patchText ?? null,
+      acceptanceCriteria: input.acceptanceCriteria,
+      sandboxAdapter: input.sandboxAdapter,
+    });
+
+    additionalChecks.push(
+      check(
+        "isolated_test_execution",
+        "Isolated acceptance test runner",
+        executionSummary.passed,
+        executionSummary.passed
+          ? `Isolated runner (${executionSummary.runnerMode}) passed with exitCode=0.`
+          : `Isolated runner (${executionSummary.runnerMode}) failed: ${executionSummary.failures.join("; ") || executionSummary.stderr}`,
+        "HARD",
+      ),
+    );
+  }
+
+  const allChecks = [...baseResult.checksPassed, ...baseResult.checksFailed, ...additionalChecks];
+  const hardFailures = allChecks.filter((item) => !item.passed && item.severity === "HARD");
+  const softFailures = allChecks.filter((item) => !item.passed && item.severity === "SOFT");
+  const passedChecks = allChecks.filter((item) => item.passed);
+  const failedChecks = allChecks.filter((item) => !item.passed);
+
+  let verificationStatus: VerificationResult["verificationStatus"];
+  let decisionReason: string;
+
+  if (hardFailures.length > 0) {
+    verificationStatus = "REJECTED";
+    decisionReason = `Rejected because ${hardFailures.length} required check(s) failed: ${hardFailures
+      .map((item) => item.label)
+      .join(", ")}. The reward was not authorized.`;
+  } else if (softFailures.length > 0) {
+    verificationStatus = "NEEDS_MANUAL_REVIEW";
+    decisionReason = `Automated checks passed, but ${softFailures.length} risk check(s) need an administrator: ${softFailures
+      .map((item) => item.label)
+      .join(", ")}.`;
+  } else {
+    verificationStatus = "PASSED";
+    decisionReason = baseResult.decisionReason;
+  }
+
+  return {
+    verificationStatus,
+    decisionReason,
+    checksPassed: passedChecks,
+    checksFailed: failedChecks,
+    evidenceReferences: baseResult.evidenceReferences,
+    requiresAdminReview: verificationStatus === "NEEDS_MANUAL_REVIEW",
+    score: Math.round((passedChecks.length / allChecks.length) * 100),
+    securityVerdict: securityReview.status === "SAFETY_REVIEW_FAILED" ? "SAFETY_REVIEW_FAILED" : securityReview.verdict,
+    securityReview,
+    executionSummary,
+  };
+}
+

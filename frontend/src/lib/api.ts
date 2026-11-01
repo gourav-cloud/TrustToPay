@@ -13,6 +13,29 @@ import type {
 } from "./types";
 
 const BASE = "/api/v1";
+const SESSION_TOKEN_KEY = "ttp_session_token";
+
+export function getStoredSessionToken(): string | null {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return null;
+    return window.localStorage.getItem(SESSION_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredSessionToken(token: string | null | undefined): void {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    if (token) {
+      window.localStorage.setItem(SESSION_TOKEN_KEY, token);
+    } else {
+      window.localStorage.removeItem(SESSION_TOKEN_KEY);
+    }
+  } catch {
+    // Ignore storage quota / privacy mode errors
+  }
+}
 
 export class ApiError extends Error {
   status: number;
@@ -29,11 +52,13 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getStoredSessionToken();
   const response = await fetch(`${BASE}${path}`, {
     credentials: "include",
     ...init,
     headers: {
       ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init.headers ?? {}),
     },
   });
@@ -49,6 +74,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
+    if (response.status === 401 && path === "/auth/me") {
+      setStoredSessionToken(null);
+    }
     const error = (payload as { error?: { code?: string; message?: string; details?: unknown } })?.error;
     throw new ApiError(
       response.status,
@@ -104,15 +132,28 @@ export type SubmitInput = {
   confidenceScore: number;
   sourceUrl?: string;
   evidenceNotes?: string;
+  files?: { path: string; content: string; encoding?: "utf8" | "base64" }[];
+  patchText?: string;
 };
 
 export const api = {
   auth: {
     me: () => request<{ user: PublicUser | null; unreadNotifications: number }>("/auth/me"),
     login: (input: { email: string; password: string }) =>
-      request<{ user: PublicUser }>("/auth/login", { method: "POST", body: JSON.stringify(input) }),
-    register: (input: { email: string; name: string; password: string; role: "REQUESTER" | "REVIEWER" }) =>
-      request<{ user: PublicUser }>("/auth/register", { method: "POST", body: JSON.stringify(input) }),
+      request<{ user: PublicUser }>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    register: (input: {
+      email: string;
+      name: string;
+      password: string;
+      role: "REQUESTER" | "REVIEWER";
+    }) =>
+      request<{ user: PublicUser }>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
     demoLogin: (role: "requester" | "reviewer" | "admin") =>
       request<{ user: PublicUser; demo: boolean }>("/auth/demo-login", {
         method: "POST",
@@ -170,9 +211,32 @@ export const api = {
     get: (id: string) => request<{ task: TaskDetail }>(`/tasks/${id}`),
     accept: (id: string) =>
       request<{ task: TaskDetail; message: string }>(`/tasks/${id}/accept`, { method: "POST" }),
+    offers: (id: string) =>
+      request<{ offers: import("./types").TaskOffer[]; ranking?: unknown[] }>(`/tasks/${id}/offers`),
+    dispatchOffers: (id: string, input: { forceNextBatch?: boolean; ttlMinutes?: number } = {}) =>
+      request<{
+        taskId: string;
+        batchNumber: number;
+        dispatchedCount: number;
+        status: string;
+        task: TaskDetail;
+      }>(`/tasks/${id}/offers/dispatch`, { method: "POST", body: JSON.stringify(input) }),
+    declineOffer: (id: string) =>
+      request<{
+        offer: import("./types").TaskOffer;
+        remainingPending: number;
+        task: TaskDetail;
+      }>(`/tasks/${id}/offers/decline`, { method: "POST" }),
+    handback: (id: string) =>
+      request<{
+        handback: import("./types").AgentHandbackPayload;
+        signature: { header: string; timestamp: string; algorithm: string };
+        idempotentReplay: boolean;
+      }>(`/tasks/${id}/handback`),
     submit: (id: string, input: SubmitInput) =>
       request<{
         submission: { id: string; verification: VerificationRun };
+        artifact?: import("./types").SubmissionArtifact;
         verification: VerificationRun;
         task: TaskDetail;
         message: string;
@@ -341,6 +405,48 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(input),
       }),
+    specialists: (params: { page?: number; pageSize?: number; q?: string } = {}) =>
+      request<Paginated<import("./types").AdminSpecialistRow>>(`/admin/specialists${query(params)}`),
+    tasks: (params: { page?: number; pageSize?: number; status?: string } = {}) =>
+      request<Paginated<import("./types").AdminTaskRow>>(`/admin/tasks${query(params)}`),
+    verifications: (params: { page?: number; pageSize?: number; status?: string } = {}) =>
+      request<Paginated<import("./types").AdminVerificationRow>>(`/admin/verifications${query(params)}`),
+    payments: (params: { page?: number; pageSize?: number; type?: string; status?: string } = {}) =>
+      request<Paginated<import("./types").AdminPaymentLedgerRow>>(`/admin/payments${query(params)}`),
+    assessments: (params: { page?: number; pageSize?: number } = {}) =>
+      request<Paginated<import("./types").AdminAssessmentRow>>(`/admin/assessments${query(params)}`),
+    elasticStatus: () =>
+      request<{
+        elastic: {
+          enabled: boolean;
+          configured: boolean;
+          indexName: string;
+          jinaConfigured: boolean;
+          embeddingModel: string;
+          mode: "HYBRID_ELASTIC" | "DATABASE_FALLBACK";
+        };
+      }>("/admin/elastic/status"),
+    elasticReindex: () =>
+      request<{
+        indexName: string;
+        elasticConfigured: boolean;
+        indexedCount: number;
+        removedCount: number;
+        errors: string[];
+      }>("/admin/elastic/reindex", { method: "POST" }),
+    elasticSearch: (input: { query: string; requiredSkills?: string[]; minimumSkillLevel?: number }) =>
+      request<{
+        discovery: {
+          mode: "HYBRID_ELASTIC" | "KEYWORD_ELASTIC" | "DATABASE_FALLBACK";
+          usedElastic: boolean;
+          fallbackReason: string | null;
+          indexName: string;
+          embeddingModel: string | null;
+          candidateIds: string[] | null;
+          similarCompletedTasks: { taskId: string; taskTitle: string; category: string; requiredSkills: string[] }[];
+          durationMs: number;
+        };
+      }>("/admin/elastic/search", { method: "POST", body: JSON.stringify(input) }),
     audit: (params: { page?: number; action?: string } = {}) =>
       request<Paginated<Record<string, unknown>>>(`/admin/audit${query(params)}`),
     disputes: (params: { status?: string; page?: number } = {}) =>
@@ -362,12 +468,42 @@ export const api = {
       headline?: string | null;
       bio?: string | null;
       timezone?: string;
-      skills?: string[];
     }) =>
       request<{ user: PublicUser; payoutProfile: Record<string, unknown> }>("/users/me/payout", {
         method: "PATCH",
         body: JSON.stringify(input),
       }),
+  },
+
+  skills: {
+    list: () => request<{ skills: import("./types").SkillCatalogItem[] }>("/skills"),
+    startAssessment: (skillId: string, level: number) =>
+      request<{
+        attempt: {
+          id: string;
+          skillId: string;
+          skillSlug: string;
+          skillName: string;
+          stageId: string;
+          level: number;
+          levelName: string;
+          version: string;
+          status: string;
+          passingScore: number;
+          startedAt: string;
+        };
+        questions: import("./types").SkillAssessmentQuestion[];
+      }>(`/skills/${encodeURIComponent(skillId)}/assessments/${level}/start`, {
+        method: "POST",
+      }),
+    submitAttempt: (attemptId: string, answers: Record<string, string>) =>
+      request<{ attempt: import("./types").SkillAssessmentAttemptResult }>(
+        `/skills/attempts/${encodeURIComponent(attemptId)}/submit`,
+        {
+          method: "POST",
+          body: JSON.stringify({ answers }),
+        },
+      ),
   },
 };
 

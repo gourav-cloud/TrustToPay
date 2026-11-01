@@ -5,18 +5,20 @@ import {
   BadgeCheck,
   BriefcaseBusiness,
   CheckCircle2,
-  CircleAlert,
+  Lock,
   Mail,
+  Play,
   Save,
   ShieldCheck,
-  Sparkles,
   UserRound,
   Wallet,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
+import type { SkillAssessmentAttemptResult, SkillAssessmentQuestion } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { PageHeader, SectionHeading, DataRow } from "@/components/common";
 import { PaymentModeBanner } from "@/components/payment-mode-banner";
+import { SkillLevelBadge } from "@/components/status-badges";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,8 +26,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { LoadingBlock } from "@/components/ui/states";
 import { formatDate, humanize } from "@/lib/format";
-
-type SkillDraft = { name: string };
 
 export default function ProfilePage() {
   const { user, refresh } = useAuth();
@@ -38,9 +38,19 @@ export default function ProfilePage() {
   const [payoutEmail, setPayoutEmail] = useState(user?.profile?.payoutEmail ?? "");
   const [consent, setConsent] = useState(user?.profile?.payoutConsent ?? false);
   const [timezone, setTimezone] = useState(user?.profile?.timezone ?? "UTC");
-  const [skills, setSkills] = useState<SkillDraft[]>(
-    (user?.skills ?? []).map((skill) => ({ name: skill.name })),
-  );
+
+  // Active sequential assessment state
+  const [activeAttempt, setActiveAttempt] = useState<{
+    id: string;
+    skillName: string;
+    level: number;
+    levelName: string;
+    passingScore: number;
+    questions: SkillAssessmentQuestion[];
+  } | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [assessmentResult, setAssessmentResult] = useState<SkillAssessmentAttemptResult | null>(null);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -49,13 +59,63 @@ export default function ProfilePage() {
     setPayoutEmail(user.profile?.payoutEmail ?? "");
     setConsent(user.profile?.payoutConsent ?? false);
     setTimezone(user.profile?.timezone ?? "UTC");
-    setSkills((user.skills ?? []).map((skill) => ({ name: skill.name })));
   }, [user]);
 
   const reviewerDashboard = useQuery({
     queryKey: ["dashboard", "reviewer"],
     queryFn: api.dashboards.reviewer,
     enabled: user?.role === "REVIEWER" || user?.role === "ADMIN",
+  });
+
+  const skillsCatalog = useQuery({
+    queryKey: ["skills", "catalog"],
+    queryFn: api.skills.list,
+    enabled: Boolean(user),
+  });
+
+  const startAssessment = useMutation({
+    mutationFn: ({ skillId, level }: { skillId: string; level: number }) =>
+      api.skills.startAssessment(skillId, level),
+    onSuccess: (data) => {
+      setAssessmentError(null);
+      setAssessmentResult(null);
+      const initialAnswers: Record<string, string> = {};
+      for (const q of data.questions) {
+        if (q.type === "CODE_TASK" && q.starterCode) {
+          initialAnswers[q.id] = q.starterCode;
+        }
+      }
+      setAnswers(initialAnswers);
+      setActiveAttempt({
+        id: data.attempt.id,
+        skillName: data.attempt.skillName,
+        level: data.attempt.level,
+        levelName: data.attempt.levelName,
+        passingScore: data.attempt.passingScore,
+        questions: data.questions,
+      });
+    },
+    onError: (err) => {
+      setAssessmentError(err instanceof ApiError ? err.message : "Could not start skill assessment.");
+    },
+  });
+
+  const submitAssessment = useMutation({
+    mutationFn: () => {
+      if (!activeAttempt) throw new Error("No active assessment");
+      return api.skills.submitAttempt(activeAttempt.id, answers);
+    },
+    onSuccess: async (data) => {
+      setAssessmentError(null);
+      setAssessmentResult(data.attempt);
+      setActiveAttempt(null);
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["skills"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err) => {
+      setAssessmentError(err instanceof ApiError ? err.message : "Could not submit skill assessment.");
+    },
   });
 
   const save = useMutation({
@@ -66,7 +126,6 @@ export default function ProfilePage() {
         payoutEmail: payoutEmail.trim() || null,
         payoutConsent: consent,
         timezone: timezone.trim() || "UTC",
-        skills: skills.map((skill) => skill.name.trim()).filter(Boolean),
       }),
     onSuccess: async () => {
       await refresh();
@@ -85,6 +144,7 @@ export default function ProfilePage() {
   const reviewer = user.role === "REVIEWER";
   const ready = Boolean(payoutEmail.trim() && consent);
   const stats = reviewerDashboard.data;
+  const verifiedSkills = user.skills ?? [];
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -108,7 +168,7 @@ export default function ProfilePage() {
         title={reviewer ? "Reviewer profile and payout details" : "Your profile"}
         description={
           reviewer
-            ? "Your skills help requesters understand your expertise. A PayPal email and explicit consent are required before a verified reward can be paid."
+            ? "Verified skills are earned sequentially (L1 Foundation → L2 Practitioner → L3 Advanced). A PayPal email and explicit consent are required before a verified reward can be paid."
             : "Keep your account details up to date. Requesters and admins use them to identify who created or reviewed a task."
         }
         actions={
@@ -186,56 +246,174 @@ export default function ProfilePage() {
               </Field>
 
               {reviewer ? (
-                <div className="space-y-2">
+                <div className="space-y-3 pt-1">
                   <SectionHeading
-                    title="Reviewer skills"
-                    description="Up to 12 skills. These appear on tasks and in the marketplace."
-                    actions={
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSkills((current) => (current.length >= 12 ? current : [...current, { name: "" }]))}
-                        disabled={skills.length >= 12}
-                      >
-                        <Sparkles className="size-3.5" /> Add skill
-                      </Button>
-                    }
+                    title="Verified reviewer skills"
+                    description="Skills cannot be self-reported. Badges are granted only by passing sequential L1 → L2 → L3 technical assessments."
                   />
-                  {skills.length === 0 ? (
+                  {verifiedSkills.length === 0 ? (
                     <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                      No skills yet. Add at least one so requesters can judge whether the task fits you.
+                      No verified skills yet. Pass a Level 1 (Foundation) assessment below to earn your first verified skill badge.
                     </p>
                   ) : (
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {skills.map((skill, index) => (
-                        <div key={index} className="flex gap-2">
-                          <Input
-                            value={skill.name}
-                            onChange={(event) =>
-                              setSkills((current) =>
-                                current.map((item, position) =>
-                                  position === index ? { name: event.target.value } : item,
-                                ),
-                              )
-                            }
-                            placeholder="USB Power Delivery"
-                            maxLength={80}
-                            aria-label={`Skill ${index + 1}`}
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Remove skill ${index + 1}`}
-                            onClick={() => setSkills((current) => current.filter((_, position) => position !== index))}
-                          >
-                            <CircleAlert className="size-4" />
-                          </Button>
-                        </div>
+                    <div className="flex flex-wrap gap-2">
+                      {verifiedSkills.map((skill) => (
+                        <SkillLevelBadge key={skill.id} name={skill.name} level={skill.level} />
                       ))}
                     </div>
                   )}
+
+                  {assessmentError ? <Alert tone="danger">{assessmentError}</Alert> : null}
+                  {assessmentResult ? (
+                    <Alert tone={assessmentResult.passed ? "success" : "warning"}>
+                      <div className="space-y-1">
+                        <p className="font-semibold">
+                          {assessmentResult.skillName} · L{assessmentResult.level} ({assessmentResult.levelName}) —{" "}
+                          {assessmentResult.passed ? "PASSED" : "FAILED"} ({assessmentResult.score}% /{" "}
+                          {assessmentResult.passingScore}% required)
+                        </p>
+                        {assessmentResult.cooldownUntil ? (
+                          <p className="text-xs">
+                            Retake cooldown active until {formatDate(assessmentResult.cooldownUntil)}. Previously passed levels remain active.
+                          </p>
+                        ) : null}
+                      </div>
+                    </Alert>
+                  ) : null}
+
+                  {activeAttempt ? (
+                    <div className="space-y-3 rounded-lg border border-primary/30 bg-muted/20 p-3.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold text-foreground">
+                            {activeAttempt.skillName} — Level {activeAttempt.level} ({activeAttempt.levelName})
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Passing score: {activeAttempt.passingScore}%
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setActiveAttempt(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+
+                      {activeAttempt.questions.map((q, idx) => (
+                        <div key={q.id} className="space-y-2 rounded-md border border-border bg-background p-3">
+                          <p className="text-xs font-medium text-foreground">
+                            {idx + 1}. {q.prompt}
+                          </p>
+                          {q.type === "MULTIPLE_CHOICE" && q.options ? (
+                            <div className="space-y-1.5">
+                              {q.options.map((opt) => (
+                                <label
+                                  key={opt.id}
+                                  className="flex cursor-pointer items-start gap-2 rounded border border-border/70 p-2 text-xs hover:bg-muted/40"
+                                >
+                                  <input
+                                    type="radio"
+                                    name={q.id}
+                                    value={opt.id}
+                                    checked={answers[q.id] === opt.id}
+                                    onChange={() =>
+                                      setAnswers((prev) => ({
+                                        ...prev,
+                                        [q.id]: opt.id,
+                                      }))
+                                    }
+                                    className="mt-0.5 accent-primary"
+                                  />
+                                  <span>{opt.text}</span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : (
+                            <Textarea
+                              rows={4}
+                              className="font-mono text-xs"
+                              value={answers[q.id] ?? ""}
+                              onChange={(e) =>
+                                setAnswers((prev) => ({
+                                  ...prev,
+                                  [q.id]: e.target.value,
+                                }))
+                              }
+                            />
+                          )}
+                        </div>
+                      ))}
+
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          size="sm"
+                          loading={submitAssessment.isPending}
+                          onClick={() => submitAssessment.mutate()}
+                        >
+                          Submit assessment
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {skillsCatalog.data?.skills ? (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-xs font-semibold text-foreground">
+                        Sequential Skill Verification Tracks (L1 → L2 → L3)
+                      </p>
+                      <div className="grid gap-2.5 sm:grid-cols-2">
+                        {skillsCatalog.data.skills.map((skill) => (
+                          <div
+                            key={skill.id}
+                            className="flex flex-col justify-between gap-2 rounded-md border border-border p-3 text-xs"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold text-foreground">{skill.name}</span>
+                                {skill.verifiedLevel > 0 ? (
+                                  <SkillLevelBadge level={skill.verifiedLevel} />
+                                ) : (
+                                  <Badge tone="neutral">Unverified</Badge>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">{skill.description}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {skill.stages.map((stage) => {
+                                const canStart = stage.status === "AVAILABLE";
+                                return (
+                                  <Button
+                                    key={stage.id}
+                                    type="button"
+                                    size="sm"
+                                    variant={stage.passed ? "secondary" : canStart ? "outline" : "ghost"}
+                                    disabled={!canStart || startAssessment.isPending}
+                                    onClick={() =>
+                                      startAssessment.mutate({ skillId: skill.slug, level: stage.level })
+                                    }
+                                    className="h-7 px-2 text-[11px]"
+                                  >
+                                    {stage.passed ? (
+                                      <CheckCircle2 className="size-3 text-emerald-600" />
+                                    ) : canStart ? (
+                                      <Play className="size-3 text-primary" />
+                                    ) : (
+                                      <Lock className="size-3 text-muted-foreground" />
+                                    )}
+                                    L{stage.level} {stage.levelName}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </CardContent>
@@ -333,13 +511,13 @@ export default function ProfilePage() {
           </Card>
 
           {reviewer ? (
-            <Card className={ready ? "border-emerald-200" : "border-amber-200"}>
+            <Card className={ready ? "border-emerald-500/30" : "border-amber-500/30"}>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   {ready ? (
-                    <BadgeCheck className="size-4 text-emerald-700" />
+                    <BadgeCheck className="size-4 text-emerald-400" />
                   ) : (
-                    <Mail className="size-4 text-amber-700" />
+                    <Mail className="size-4 text-amber-400" />
                   )}
                   Payout readiness
                 </CardTitle>

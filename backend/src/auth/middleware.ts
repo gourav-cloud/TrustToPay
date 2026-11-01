@@ -2,10 +2,33 @@ import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { AppError } from "../lib/errors.js";
-import { verifySessionToken } from "./service.js";
+import { hashAgentApiKey, isAgentApiKeyFormat, verifySessionToken } from "./service.js";
 
 export async function attachUser(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
+    const authHeader = req.get("authorization");
+    if (authHeader && /^Bearer\s+/i.test(authHeader)) {
+      const rawKey = authHeader.replace(/^Bearer\s+/i, "").trim();
+      if (rawKey && isAgentApiKeyFormat(rawKey)) {
+        const keyHash = hashAgentApiKey(rawKey);
+        const apiKey = await prisma.agentApiKey.findUnique({
+          where: { keyHash },
+          include: { user: true },
+        });
+        if (apiKey && !apiKey.revokedAt && apiKey.user && apiKey.user.isActive) {
+          req.user = apiKey.user;
+          await prisma.agentApiKey
+            .update({
+              where: { id: apiKey.id },
+              data: { lastUsedAt: new Date() },
+            })
+            .catch(() => undefined);
+          return next();
+        }
+      }
+      return next();
+    }
+
     const token = req.cookies?.[config.sessionCookieName];
     if (!token) return next();
 

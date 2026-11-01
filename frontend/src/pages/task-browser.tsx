@@ -1,26 +1,31 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
+  CheckCircle2,
+  Clock,
   Filter,
   LayoutGrid,
   ListFilter,
   Search,
+  Sparkles,
   Store,
   X,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { TaskSummary } from "@/lib/types";
 import { PageHeader } from "@/components/common";
 import { PaymentModeBanner } from "@/components/payment-mode-banner";
 import { TaskCard } from "@/components/task-card";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/ui/states";
-import { formatMoney } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { CATEGORY_META, CATEGORY_VALUES } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +39,7 @@ const MODE_COPY: Record<
     eyebrow: "Reviewer marketplace",
     title: "Funded questions that need a human",
     description:
-      "Every task here has an approved reward and confirmed funding. Acceptance is exclusive: the first qualified reviewer wins and the task leaves the marketplace.",
+      "Every task here has an approved reward and confirmed funding. Top-5 ranked specialists receive expiring parallel offers; acceptance is atomic and exclusive.",
     scope: "available",
   },
   reviews: {
@@ -64,6 +69,7 @@ const STATUS_OPTIONS = [
   "AWAITING_FUNDING",
   "FUNDING_FAILED",
   "FUNDED",
+  "OFFERED",
   "REVIEWER_ASSIGNED",
   "VERIFICATION_PENDING",
   "VERIFICATION_REJECTED",
@@ -72,6 +78,7 @@ const STATUS_OPTIONS = [
   "PAYMENT_PROCESSING",
   "PAYMENT_PAID",
   "PAYOUT_FAILED",
+  "HANDED_OFF",
   "COMPLETED",
   "DISPUTED",
   "CANCELLED",
@@ -79,6 +86,8 @@ const STATUS_OPTIONS = [
 
 export default function TaskBrowserPage({ mode }: { mode: BrowserMode }) {
   const copy = MODE_COPY[mode];
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(params.get("q") ?? "");
@@ -89,6 +98,7 @@ export default function TaskBrowserPage({ mode }: { mode: BrowserMode }) {
   const [minReward, setMinReward] = useState("");
   const [maxReward, setMaxReward] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [offerActionError, setOfferActionError] = useState<string | null>(null);
 
   const minMinor = minReward ? Math.round(Number(minReward) * 100) : undefined;
   const maxMinor = maxReward ? Math.round(Number(maxReward) * 100) : undefined;
@@ -110,7 +120,36 @@ export default function TaskBrowserPage({ mode }: { mode: BrowserMode }) {
       }),
   });
 
+  const acceptOffer = useMutation({
+    mutationFn: (taskId: string) => api.tasks.accept(taskId),
+    onSuccess: async (data) => {
+      setOfferActionError(null);
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      navigate(`/app/tasks/${data.task.id}`);
+    },
+    onError: (err) => {
+      setOfferActionError(err instanceof ApiError ? err.message : "Could not accept the task offer.");
+    },
+  });
+
+  const declineOffer = useMutation({
+    mutationFn: (taskId: string) => api.tasks.declineOffer(taskId),
+    onSuccess: async () => {
+      setOfferActionError(null);
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err) => {
+      setOfferActionError(err instanceof ApiError ? err.message : "Could not decline the task offer.");
+    },
+  });
+
   const items = query.data?.items ?? [];
+  const pendingOfferedTasks = useMemo(
+    () => items.filter((item) => item.myOffer?.status === "PENDING"),
+    [items],
+  );
   const pagination = query.data?.pagination;
   const total = pagination?.total ?? 0;
   const totalPages = pagination?.totalPages ?? 1;
@@ -175,6 +214,73 @@ export default function TaskBrowserPage({ mode }: { mode: BrowserMode }) {
       />
 
       <PaymentModeBanner compact />
+
+      {offerActionError ? <Alert tone="danger">{offerActionError}</Alert> : null}
+
+      {mode === "marketplace" && pendingOfferedTasks.length > 0 ? (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Sparkles className="size-4 text-primary" /> Pending Top-5 Specialist Offers ({pendingOfferedTasks.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            <p className="text-xs text-muted-foreground">
+              You were ranked in the top-5 specialists for these funded tasks. The first specialist to accept claims the assignment atomically and supersedes remaining offers.
+            </p>
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {pendingOfferedTasks.map((task) => {
+                const offer = task.myOffer!;
+                return (
+                  <div
+                    key={offer.id}
+                    className="flex flex-col justify-between gap-2.5 rounded-md border border-border bg-card p-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Badge tone="accent" dot>
+                          Batch #{offer.batchNumber} · Rank #{offer.rank} ({offer.score} pts)
+                        </Badge>
+                        <span className="text-xs font-semibold tabular-nums">
+                          {formatMoney(task.rewardMinor, task.currency)}
+                        </span>
+                      </div>
+                      <Link to={`/app/tasks/${task.id}`} className="block text-sm font-semibold hover:text-primary">
+                        {task.title}
+                      </Link>
+                      <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Clock className="size-3" /> Expires {formatDate(offer.expiresAt)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs"
+                        loading={acceptOffer.isPending}
+                        onClick={() => acceptOffer.mutate(task.id)}
+                      >
+                        <CheckCircle2 className="size-3.5" /> Accept offer
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        loading={declineOffer.isPending}
+                        onClick={() => declineOffer.mutate(task.id)}
+                      >
+                        Decline
+                      </Button>
+                      <Button asChild size="sm" variant="ghost" className="ml-auto h-7 text-xs">
+                        <Link to={`/app/tasks/${task.id}`}>Details</Link>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardContent className="p-3.5">
@@ -410,7 +516,7 @@ export default function TaskBrowserPage({ mode }: { mode: BrowserMode }) {
 
 function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium">
+    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] font-medium">
       {label}
       <button type="button" onClick={onClear} aria-label={`Clear ${label}`} className="text-muted-foreground hover:text-foreground">
         <X className="size-3" />

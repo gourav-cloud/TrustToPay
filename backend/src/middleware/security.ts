@@ -7,25 +7,46 @@ import { AppError } from "../lib/errors.js";
 
 export function securityHeaders() {
   return helmet({
-    // The SPA is served separately in development and Swagger UI needs inline
+    // The SPA is served in an iframe in preview environments and Swagger UI needs inline
     // assets. The API itself returns JSON only.
     contentSecurityPolicy: false,
+    frameguard: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
     referrerPolicy: { policy: "no-referrer" },
   });
 }
 
+function isAllowedOrigin(origin: string, req?: Request): boolean {
+  const allowed = new Set([
+    config.frontendUrl,
+    config.apiBaseUrl,
+    "http://localhost:3000",
+    "http://localhost:4000",
+    "http://localhost:5173",
+    ...(process.env.APP_URL ? [process.env.APP_URL.replace(/\/$/, "")] : []),
+    ...(process.env.SHARED_APP_URL ? [process.env.SHARED_APP_URL.replace(/\/$/, "")] : []),
+  ]);
+  if (allowed.has(origin)) return true;
+  try {
+    const parsed = new URL(origin);
+    if (parsed.hostname.endsWith(".run.app")) return true;
+    if (req && req.get("host") && parsed.host === req.get("host")) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export function corsMiddleware() {
-  const allowed = new Set([config.frontendUrl, config.apiBaseUrl]);
   return cors({
     origin(origin, callback) {
       if (!origin) return callback(null, true);
-      if (allowed.has(origin)) return callback(null, true);
+      if (isAllowedOrigin(origin)) return callback(null, true);
       return callback(new AppError(403, "CORS_DENIED", "Origin is not allowed by CORS policy."));
     },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "X-Requested-With"],
+    allowedHeaders: ["Content-Type", "X-Requested-With", "Authorization"],
   });
 }
 
@@ -37,12 +58,25 @@ export function corsMiddleware() {
  */
 export function originCheck(req: Request, _res: Response, next: NextFunction): void {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  if (req.path.startsWith("/api/v1/paypal/webhook")) return next();
   const origin = req.get("origin");
-  if (!origin) return next();
+  if (origin) {
+    if (!isAllowedOrigin(origin, req)) {
+      throw new AppError(403, "ORIGIN_MISMATCH", "Request origin does not match this application.");
+    }
+    return next();
+  }
 
-  const allowed = new Set([config.frontendUrl, config.apiBaseUrl]);
-  if (!allowed.has(origin)) {
-    throw new AppError(403, "ORIGIN_MISMATCH", "Request origin does not match this application.");
+  const referer = req.get("referer");
+  if (referer) {
+    try {
+      const refererOrigin = new URL(referer).origin;
+      if (!isAllowedOrigin(refererOrigin, req)) {
+        throw new AppError(403, "ORIGIN_MISMATCH", "Request referer origin does not match this application.");
+      }
+    } catch {
+      throw new AppError(403, "ORIGIN_MISMATCH", "Invalid request referer header.");
+    }
   }
   next();
 }

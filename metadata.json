@@ -1,0 +1,8 @@
+{
+  "name": "TrustToPay",
+  "description": "TrustToPay routes uncertain AI answers to qualified humans, verifies the evidence, and settles the reward through PayPal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

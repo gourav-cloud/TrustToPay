@@ -77,7 +77,7 @@ export default function DocsPage() {
         actions={
           <>
             <Button asChild variant="outline">
-              <a href="http://localhost:4000/api-docs" target="_blank" rel="noreferrer">
+              <a href="/api-docs" target="_blank" rel="noreferrer">
                 Swagger <ExternalLink className="size-4" />
               </a>
             </Button>
@@ -154,35 +154,27 @@ npm run dev       # API :4000 and web :5173`}</code>
                 </div>
                 <p className="text-[11px] leading-5 text-muted-foreground">
                   Open <code>http://localhost:5173</code>. API docs are at{" "}
-                  <code>http://localhost:4000/api-docs</code>, health is <code>/health</code>, and the versioned API
+                  <code>/api-docs</code>, health is <code>/health</code>, and the versioned API
                   base is <code>/api/v1</code>.
                 </p>
               </CardContent>
             </Card>
 
-            <h3>Demo accounts</h3>
+            <h3>Workspace roles</h3>
             <ul>
               <li>
-                <code>agent@demo.trusttopay.dev</code> - requester / AI agent operator
+                <strong>Requester / Agent Operator</strong> — creates agent sessions, runs confidence analysis, funds
+                PayPal escrow orders, and consumes signed handback payloads.
               </li>
               <li>
-                <code>reviewer@demo.trusttopay.dev</code> - approved reviewer
+                <strong>Specialist (Reviewer)</strong> — completes L1–L3 skill assessments, accepts top-5 parallel task
+                offers, submits verified patches/answers, and receives PayPal Payouts.
               </li>
               <li>
-                <code>reviewer2@demo.trusttopay.dev</code> - second reviewer, used for assignment and dispute
-                scenarios
-              </li>
-              <li>
-                <code>admin@demo.trusttopay.dev</code> - administrator
-              </li>
-              <li>
-                Password for all seeded accounts: <code>Demo1234!</code>
+                <strong>Administrator</strong> — manages specialist eligibility, monitors AG Grid operations &amp;
+                Elastic hybrid discovery, resolves disputes, and audits security verification runs.
               </li>
             </ul>
-            <p>
-              One-click demo sign-in is also available on the login page. It is enabled only while{" "}
-              <code>DEMO_MODE=true</code>. Registered reviewers are auto-approved only in demo mode.
-            </p>
 
             <h3>Environment variables</h3>
             <div className="not-prose overflow-x-auto rounded-lg border border-border">
@@ -314,7 +306,7 @@ Any pre-paid state -> CANCELLED`}</code>
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-sm">
-                    <CreditCard className="size-4 text-blue-600" /> Funding - Checkout
+                    <CreditCard className="size-4 text-blue-400" /> Funding - Checkout
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-[11px] leading-5 text-muted-foreground">
@@ -329,7 +321,7 @@ Any pre-paid state -> CANCELLED`}</code>
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-sm">
-                    <CreditCard className="size-4 text-emerald-600" /> Reward - Payouts
+                    <CreditCard className="size-4 text-emerald-400" /> Reward - Payouts
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-[11px] leading-5 text-muted-foreground">
@@ -393,8 +385,8 @@ Any pre-paid state -> CANCELLED`}</code>
               <li>Secrets stay server-side. Only the Sandbox Client ID is exposed, and only for the PayPal JS SDK.</li>
             </ul>
             <Alert tone="info">
-              This is a hackathon reference implementation, not a production payments system. It does not implement
-              email verification, password reset, MFA, KYC, tax reporting, or a durable job queue.
+              All financial operations in this environment are restricted to simulated ledger records or PayPal Sandbox
+              endpoints; live-money PayPal endpoints are disabled by configuration guardrails.
             </Alert>
           </section>
 
@@ -433,7 +425,7 @@ Any pre-paid state -> CANCELLED`}</code>
             </div>
             <p className="mt-3">
               The OpenAPI document is served by the backend. Start the app and open{" "}
-              <a href="http://localhost:4000/api-docs" target="_blank" rel="noreferrer">
+              <a href="/api-docs" target="_blank" rel="noreferrer">
                 /api-docs
               </a>
               .
@@ -539,14 +531,14 @@ Any pre-paid state -> CANCELLED`}</code>
 
           <div className="not-prose mt-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-muted/30 p-4">
             <div className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-400" />
               <span>
                 MIT licensed. Sandbox-only. Demo payments are simulated and labelled in every ledger view.
               </span>
             </div>
             <Button asChild size="sm" variant="outline">
-              <Link to="/app">
-                Back to app <ArrowRight className="size-3.5" />
+              <Link to="/">
+                Back to overview <ArrowRight className="size-3.5" />
               </Link>
             </Button>
           </div>

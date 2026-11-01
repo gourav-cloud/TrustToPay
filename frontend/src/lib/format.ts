@@ -71,11 +71,14 @@ export function taskStatusTone(status: string): Tone {
     case "COMPLETED":
     case "PAYMENT_PAID":
     case "VERIFIED":
+    case "HANDED_OFF":
     case "ORIGINAL_TASK_RESUMED":
       return "success";
     case "PAYMENT_READY":
     case "FUNDED":
+    case "OFFERED":
     case "VERIFICATION_PENDING":
+    case "UNDER_VERIFICATION":
     case "AI_ANALYSIS":
       return "info";
     case "AWAITING_FUNDING":
@@ -88,12 +91,16 @@ export function taskStatusTone(status: string): Tone {
     case "FUNDING_FAILED":
     case "PAYOUT_FAILED":
     case "VERIFICATION_REJECTED":
+    case "NEEDS_REVISION":
     case "CANCELLED":
     case "EXPIRED":
       return "danger";
     case "PAYMENT_PROCESSING":
     case "REVIEWER_ASSIGNED":
+    case "ASSIGNED":
+    case "IN_PROGRESS":
     case "SUBMISSION_RECEIVED":
+    case "SUBMITTED":
       return "accent";
     default:
       return "neutral";

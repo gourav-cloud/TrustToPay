@@ -17,7 +17,7 @@ import type { Payment } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { PageHeader, StatCard } from "@/components/common";
 import { PaymentModeBanner } from "@/components/payment-mode-banner";
-import { ModeBadge, PaymentStatusBadge } from "@/components/status-badges";
+import { ModeBadge, PaymentStatusBadge, PayoutAvailabilityBadge } from "@/components/status-badges";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -347,15 +347,22 @@ function PaymentRow({
         </p>
         <p className="text-[9px] text-muted-foreground">{formatDate(payment.createdAt)}</p>
         {payment.failureMessage ? (
-          <p className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-red-700">{payment.failureMessage}</p>
+          <p className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-red-400">{payment.failureMessage}</p>
         ) : null}
       </div>
       <div className="flex items-center gap-1.5 text-xs">
         {payment.type === "FUNDING" ? <CreditCard className="size-3.5 text-blue-600" /> : <Wallet className="size-3.5 text-emerald-600" />}
         {humanize(payment.type)}
       </div>
-      <div>
-        <ModeBadge mode={payment.mode} />
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-1">
+          <ModeBadge mode={payment.mode} />
+          {payment.type === "PAYOUT" ? (
+            <PayoutAvailabilityBadge
+              availability={payment.payoutAvailability ?? (payment.mode === "SIMULATED" ? "DEMO_SIMULATED" : undefined)}
+            />
+          ) : null}
+        </div>
         <p className="mt-0.5 text-[9px] text-muted-foreground">{payment.provider}</p>
       </div>
       <div className="text-left text-sm font-semibold tabular-nums lg:text-right">{payment.amountDisplay}</div>

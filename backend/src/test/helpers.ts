@@ -20,7 +20,9 @@ export function agent(): TestAgent {
 export async function resetDatabase(): Promise<void> {
   await prisma.paymentWebhookEvent.deleteMany();
   await prisma.verificationRun.deleteMany();
+  await prisma.submissionArtifact.deleteMany();
   await prisma.reviewSubmission.deleteMany();
+  await prisma.taskOffer.deleteMany();
   await prisma.taskAssignment.deleteMany();
   await prisma.paymentTransaction.deleteMany();
   await prisma.taskEvent.deleteMany();
@@ -32,6 +34,11 @@ export async function resetDatabase(): Promise<void> {
   await prisma.agentSession.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.agentApiKey.deleteMany();
+  await prisma.skillAssessmentAttempt.deleteMany();
+  await prisma.userSkillLevel.deleteMany();
+  await prisma.assessmentStage.deleteMany();
+  await prisma.skill.deleteMany();
   await prisma.reviewerSkill.deleteMany();
   await prisma.userProfile.deleteMany();
   await prisma.user.deleteMany();

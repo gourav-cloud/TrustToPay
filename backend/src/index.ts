@@ -27,12 +27,12 @@ async function verifyDatabase(): Promise<void> {
 
 await verifyDatabase();
 
-const server = app.listen(config.port, () => {
+const server = app.listen(config.port, "0.0.0.0", () => {
   console.log("");
   console.log("  TrustToPay API");
-  console.log(`  → http://localhost:${config.port}`);
-  console.log(`  → http://localhost:${config.port}/api-docs`);
-  console.log(`  → http://localhost:${config.port}/health`);
+  console.log(`  → http://0.0.0.0:${config.port}`);
+  console.log(`  → http://0.0.0.0:${config.port}/api-docs`);
+  console.log(`  → http://0.0.0.0:${config.port}/health`);
   console.log("");
   console.log(`  Frontend:      ${config.frontendUrl}`);
   console.log(`  AI engine:     ${config.aiConfigured ? `provider (${config.aiProvider} / ${config.aiModel})` : "Demo AI Mode (deterministic)"}`);

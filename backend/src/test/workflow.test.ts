@@ -242,4 +242,64 @@ describe("task authorization and limits", () => {
 
     expect(requester.id).toBeTruthy();
   });
+
+  it("deduplicates repeated POST /api/tasks requests with the same Idempotency-Key", async () => {
+    const requester = await createUser("REQUESTER", { email: "idem-agent@test.dev", name: "Idempotent Agent" });
+    const client = agent();
+    await loginAs(client, requester.email);
+
+    const keyRes = await client.post("/api/v1/auth/api-keys").send({ name: "Retry Agent", mode: "test" });
+    const rawKey = keyRes.body.rawKey as string;
+
+    const session = await createChargerSession(client);
+    await analyzeChargerSession(client, session.id);
+
+    const payload = {
+      sessionId: session.id,
+      acceptanceCriteria,
+      rewardMinor: 1500,
+      rewardApproved: true,
+    };
+
+    const first = await agent()
+      .post("/api/tasks")
+      .set("Authorization", `Bearer ${rawKey}`)
+      .set("Idempotency-Key", "agent-retry-key-001")
+      .send(payload);
+    expect(first.status).toBe(201);
+
+    const second = await agent()
+      .post("/api/tasks")
+      .set("Authorization", `Bearer ${rawKey}`)
+      .set("Idempotency-Key", "agent-retry-key-001")
+      .send(payload);
+    expect(second.status).toBe(200);
+    expect(second.body.idempotentReplay).toBe(true);
+    expect(second.body.task.id).toBe(first.body.task.id);
+
+    const list = await agent()
+      .get("/api/tasks")
+      .set("Authorization", `Bearer ${rawKey}`);
+    expect(list.status).toBe(200);
+    expect(list.body.pagination.total).toBe(1);
+  });
+
+  it("enforces decoupled task state machine transitions and rejects invalid jumps like ASSIGNED -> COMPLETED", async () => {
+    const { assertTransition, canTransition } = await import("../services/stateMachine.js");
+
+    expect(canTransition("DRAFT", "QUEUED")).toBe(true);
+    expect(canTransition("QUEUED", "MATCHING")).toBe(true);
+    expect(canTransition("MATCHING", "OFFERED")).toBe(true);
+    expect(canTransition("OFFERED", "ASSIGNED")).toBe(true);
+    expect(canTransition("ASSIGNED", "IN_PROGRESS")).toBe(true);
+    expect(canTransition("IN_PROGRESS", "SUBMITTED")).toBe(true);
+    expect(canTransition("SUBMITTED", "SAFETY_CHECKING")).toBe(true);
+    expect(canTransition("SAFETY_CHECKING", "VERIFICATION_RUNNING")).toBe(true);
+    expect(canTransition("VERIFICATION_RUNNING", "VERIFIED")).toBe(true);
+    expect(canTransition("VERIFIED", "HANDED_OFF")).toBe(true);
+    expect(canTransition("HANDED_OFF", "COMPLETED")).toBe(true);
+
+    expect(canTransition("ASSIGNED", "COMPLETED")).toBe(false);
+    expect(() => assertTransition("ASSIGNED", "COMPLETED")).toThrow(/Cannot move a review task from ASSIGNED to COMPLETED/);
+  });
 });

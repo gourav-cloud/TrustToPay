@@ -256,7 +256,7 @@ export default function SessionDetailPage() {
                     </Link>
                   </Button>
                   {task.status === "AWAITING_FUNDING" || task.status === "FUNDING_FAILED" ? (
-                    <p className="rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-[11px] leading-5 text-amber-900">
+                    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] leading-5 text-amber-200">
                       The reward still needs funding. The task cannot be accepted until the capture is confirmed.
                     </p>
                   ) : null}
@@ -289,7 +289,7 @@ export default function SessionDetailPage() {
             />
           ) : null}
 
-          <Card className={session.finalAnswer ? "border-emerald-200" : undefined}>
+          <Card className={session.finalAnswer ? "border-emerald-500/30" : undefined}>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Bot className="size-4 text-primary" /> Resume the agent
@@ -298,8 +298,8 @@ export default function SessionDetailPage() {
             <CardContent className="space-y-3">
               {session.finalAnswer ? (
                 <>
-                  <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3 text-xs leading-5 text-emerald-950">
-                    <p className="font-semibold">Verified answer delivered</p>
+                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs leading-5 text-emerald-100">
+                    <p className="font-semibold text-emerald-300">Verified answer delivered</p>
                     <p className="mt-1 whitespace-pre-line">{session.finalAnswer}</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground">Resolved {formatDate(session.resolvedAt)}</p>
@@ -392,7 +392,7 @@ function AnalysisCard({
             <p
               className={cn(
                 "mt-1 text-2xl font-semibold tabular-nums",
-                confidence >= 75 ? "text-emerald-700" : confidence >= 50 ? "text-amber-700" : "text-red-700",
+                confidence >= 75 ? "text-emerald-400" : confidence >= 50 ? "text-amber-400" : "text-red-400",
               )}
             >
               {confidence}%
@@ -527,20 +527,20 @@ function AnalysisCard({
 
 function ConflictRow({ conflict }: { conflict: Conflict }) {
   return (
-    <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3">
+    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold text-amber-950">Conflict · {conflict.severity}</p>
+        <p className="text-xs font-semibold text-amber-200">Conflict · {conflict.severity}</p>
         {conflict.severity === "CRITICAL" ? <Badge tone="danger">Forces escalation</Badge> : null}
       </div>
-      <p className="mt-1 text-[11px] leading-5 text-amber-900">{conflict.detail}</p>
+      <p className="mt-1 text-[11px] leading-5 text-amber-100/90">{conflict.detail}</p>
       <div className="mt-2 grid gap-2 text-[11px] leading-5 sm:grid-cols-2">
-        <div className="rounded border border-amber-200 bg-white/60 p-2">
-          <p className="font-semibold">{conflict.sourceA}</p>
-          <p className="text-amber-900/80">“{conflict.claimA}”</p>
+        <div className="rounded border border-amber-500/25 bg-[#080C14]/80 p-2">
+          <p className="font-semibold text-amber-200">{conflict.sourceA}</p>
+          <p className="text-amber-100/80">“{conflict.claimA}”</p>
         </div>
-        <div className="rounded border border-amber-200 bg-white/60 p-2">
-          <p className="font-semibold">{conflict.sourceB}</p>
-          <p className="text-amber-900/80">“{conflict.claimB}”</p>
+        <div className="rounded border border-amber-500/25 bg-[#080C14]/80 p-2">
+          <p className="font-semibold text-amber-200">{conflict.sourceB}</p>
+          <p className="text-amber-100/80">“{conflict.claimB}”</p>
         </div>
       </div>
     </div>

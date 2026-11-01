@@ -57,23 +57,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unreadNotifications: meQuery.data?.unreadNotifications ?? 0,
       login: async (email, password) => {
         const result = await loginMutation.mutateAsync({ email, password });
-        await queryClient.invalidateQueries();
+        queryClient.setQueryData(["auth", "me"], {
+          user: result.user,
+          unreadNotifications: 0,
+        });
+        await queryClient.invalidateQueries({
+          predicate: (q) => q.queryKey[0] !== "auth" || q.queryKey[1] !== "me",
+        });
         return result.user;
       },
       register: async (input) => {
         const result = await registerMutation.mutateAsync(input);
-        await queryClient.invalidateQueries();
+        queryClient.setQueryData(["auth", "me"], {
+          user: result.user,
+          unreadNotifications: 0,
+        });
+        await queryClient.invalidateQueries({
+          predicate: (q) => q.queryKey[0] !== "auth" || q.queryKey[1] !== "me",
+        });
         return result.user;
       },
       demoLogin: async (role) => {
         const result = await demoMutation.mutateAsync(role);
-        await queryClient.invalidateQueries();
+        queryClient.setQueryData(["auth", "me"], {
+          user: result.user,
+          unreadNotifications: 0,
+        });
+        await queryClient.invalidateQueries({
+          predicate: (q) => q.queryKey[0] !== "auth" || q.queryKey[1] !== "me",
+        });
         return result.user;
       },
       logout: async () => {
         await logoutMutation.mutateAsync();
         queryClient.clear();
-        await meQuery.refetch();
+        queryClient.setQueryData(["auth", "me"], {
+          user: null,
+          unreadNotifications: 0,
+        });
       },
       refresh: async () => {
         await meQuery.refetch();

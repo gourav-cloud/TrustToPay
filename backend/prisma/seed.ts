@@ -6,6 +6,7 @@ import { verifySubmission } from "../src/services/verification.js";
 import { transitionTask } from "../src/services/stateMachine.js";
 import { recordTaskEvent } from "../src/lib/audit.js";
 import { defaultAcceptanceCriteria, defaultSkillsFor, detectCategory, normalizeCategory } from "../src/lib/categories.js";
+import { ensureDefaultSkillsSeeded, seedVerifiedSkillLevel } from "../src/services/skills/assessmentEngine.js";
 import type { AnalysisInput, AnalysisOutput } from "../src/services/ai/schema.js";
 
 const prisma = new PrismaClient();
@@ -327,7 +328,11 @@ async function main() {
   await prisma.reviewTask.deleteMany({ where: { requesterId: { in: demoUserIds } } });
   await prisma.agentSession.deleteMany({ where: { userId: { in: demoUserIds } } });
   await prisma.notification.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.skillAssessmentAttempt.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.userSkillLevel.deleteMany({ where: { userId: { in: demoUserIds } } });
   await prisma.reviewerSkill.deleteMany({ where: { userId: { in: demoUserIds } } });
+
+  await ensureDefaultSkillsSeeded(prisma);
 
   await prisma.userProfile.upsert({
     where: { userId: reviewer.id },
@@ -370,18 +375,24 @@ async function main() {
 
   await prisma.reviewerSkill.createMany({
     data: [
-      { userId: reviewer.id, name: "USB-C power compatibility", category: "HARDWARE", level: 5 },
-      { userId: reviewer.id, name: "USB Power Delivery", category: "HARDWARE", level: 5 },
-      { userId: reviewer.id, name: "Laptop charging requirements", category: "HARDWARE", level: 4 },
-      { userId: reviewer.id, name: "Manufacturer documentation review", category: "CONCEPTUAL", level: 5 },
-      { userId: reviewer2.id, name: "Software debugging", category: "PROGRAMMING", level: 5 },
-      { userId: reviewer2.id, name: "Node.js runtime", category: "PROGRAMMING", level: 4 },
-      { userId: reviewer2.id, name: "Smart contract security", category: "CRYPTO", level: 5 },
-      { userId: reviewer2.id, name: "Systems design", category: "CONCEPTUAL", level: 4 },
-      { userId: reviewer2.id, name: "Technical research", category: "CONCEPTUAL", level: 4 },
-      { userId: reviewer2.id, name: "Consumer electronics", category: "HARDWARE", level: 3 },
+      { userId: reviewer.id, name: "USB-C power compatibility", category: "HARDWARE", level: 3 },
+      { userId: reviewer.id, name: "USB Power Delivery", category: "HARDWARE", level: 3 },
+      { userId: reviewer.id, name: "Laptop charging requirements", category: "HARDWARE", level: 2 },
+      { userId: reviewer.id, name: "Manufacturer documentation review", category: "CONCEPTUAL", level: 3 },
+      { userId: reviewer2.id, name: "Software debugging", category: "PROGRAMMING", level: 3 },
+      { userId: reviewer2.id, name: "Node.js runtime", category: "PROGRAMMING", level: 2 },
+      { userId: reviewer2.id, name: "Smart contract security", category: "CRYPTO", level: 3 },
+      { userId: reviewer2.id, name: "Systems design", category: "CONCEPTUAL", level: 2 },
+      { userId: reviewer2.id, name: "Technical research", category: "CONCEPTUAL", level: 2 },
+      { userId: reviewer2.id, name: "Consumer electronics", category: "HARDWARE", level: 1 },
     ],
   });
+
+  await seedVerifiedSkillLevel(prisma, { userId: reviewer.id, skillSlug: "distributed-systems", targetLevel: 2 });
+  await seedVerifiedSkillLevel(prisma, { userId: reviewer2.id, skillSlug: "typescript", targetLevel: 3 });
+  await seedVerifiedSkillLevel(prisma, { userId: reviewer2.id, skillSlug: "python", targetLevel: 2 });
+  await seedVerifiedSkillLevel(prisma, { userId: reviewer2.id, skillSlug: "smart-contracts", targetLevel: 3 });
+  await seedVerifiedSkillLevel(prisma, { userId: reviewer2.id, skillSlug: "distributed-systems", targetLevel: 2 });
 
   /* ----------------------------------------------------------------------- */
   /* Scenario A — the primary demo: charger conflict awaiting funding        */

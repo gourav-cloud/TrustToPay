@@ -2,12 +2,12 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const tones = {
-  neutral: "border-border bg-muted/60 text-foreground",
-  info: "border-blue-200 bg-blue-50/70 text-blue-900",
-  success: "border-emerald-200 bg-emerald-50/70 text-emerald-900",
-  warning: "border-amber-200 bg-amber-50/70 text-amber-900",
-  danger: "border-red-200 bg-red-50/70 text-red-900",
-  accent: "border-indigo-200 bg-indigo-50/70 text-indigo-900",
+  neutral: "border-border bg-secondary/50 text-foreground",
+  info: "border-blue-500/30 bg-blue-500/10 text-blue-200",
+  success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+  warning: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+  danger: "border-red-500/30 bg-red-500/10 text-red-200",
+  accent: "border-sky-500/30 bg-sky-500/10 text-sky-200",
 } as const;
 
 export function Alert({
@@ -27,8 +27,8 @@ export function Alert({
     <div role="status" className={cn("flex gap-3 rounded-lg border p-3.5 text-sm", tones[tone], className)}>
       {icon ? <div className="mt-0.5 shrink-0">{icon}</div> : null}
       <div className="space-y-1">
-        {title ? <p className="font-medium leading-5">{title}</p> : null}
-        {children ? <div className="text-[13px] leading-5 opacity-90">{children}</div> : null}
+        {title ? <p className="font-semibold leading-5 text-foreground">{title}</p> : null}
+        {children ? <div className="text-[13px] leading-5 opacity-95">{children}</div> : null}
       </div>
     </div>
   );

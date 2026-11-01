@@ -5,14 +5,18 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  Award,
   CheckCircle2,
+  FileCode2,
   Gavel,
   History,
   Search,
+  ShieldAlert,
   ShieldCheck,
   UserCheck,
   UserX,
   Users,
+  Wallet,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -25,10 +29,36 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/ui/states";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  PaymentLedgerGridTab,
+  SecurityVerificationsGridTab,
+  SkillAssessmentsGridTab,
+  SpecialistsGridTab,
+  TasksDispatchGridTab,
+} from "@/components/admin/admin-ag-grids";
 import { formatDate, humanize, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-type Tab = "users" | "disputes" | "audit";
+type Tab =
+  | "specialists"
+  | "tasks"
+  | "verifications"
+  | "payments"
+  | "assessments"
+  | "users"
+  | "disputes"
+  | "audit";
+
+const VALID_TABS: Tab[] = [
+  "specialists",
+  "tasks",
+  "verifications",
+  "payments",
+  "assessments",
+  "users",
+  "disputes",
+  "audit",
+];
 
 type AdminUser = {
   id: string;
@@ -73,8 +103,8 @@ type DisputeRow = {
 
 export default function AdminConsolePage() {
   const [params, setParams] = useSearchParams();
-  const initialTab = (params.get("tab") as Tab) || "users";
-  const [tab, setTab] = useState<Tab>(["users", "disputes", "audit"].includes(initialTab) ? initialTab : "users");
+  const initialTab = (params.get("tab") as Tab) || "specialists";
+  const [tab, setTab] = useState<Tab>(VALID_TABS.includes(initialTab) ? initialTab : "specialists");
 
   function changeTab(next: string) {
     setTab(next as Tab);
@@ -87,8 +117,8 @@ export default function AdminConsolePage() {
     <div className="space-y-5">
       <PageHeader
         eyebrow="Administration"
-        title="Admin console"
-        description="Reviewer eligibility, disputes and the immutable audit trail. Every administrative action is recorded."
+        title="Admin Operations Console"
+        description="AG Grid Community operational tables, Elastic hybrid specialist discovery, security verification telemetry, read-only payment ledger, disputes, and immutable audit trail."
         actions={
           <>
             <Button asChild variant="outline">
@@ -104,9 +134,24 @@ export default function AdminConsolePage() {
       />
 
       <Tabs value={tab} onValueChange={changeTab}>
-        <TabsList>
+        <TabsList className="flex h-auto flex-wrap gap-1">
+          <TabsTrigger value="specialists" className="gap-1.5">
+            <Users className="size-3.5" /> Specialists (AG Grid)
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="gap-1.5">
+            <FileCode2 className="size-3.5" /> Tasks & Dispatch
+          </TabsTrigger>
+          <TabsTrigger value="verifications" className="gap-1.5">
+            <ShieldAlert className="size-3.5" /> Security & Verification
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="gap-1.5">
+            <Wallet className="size-3.5" /> Payment Ledger
+          </TabsTrigger>
+          <TabsTrigger value="assessments" className="gap-1.5">
+            <Award className="size-3.5" /> Skill Assessments
+          </TabsTrigger>
           <TabsTrigger value="users" className="gap-1.5">
-            <Users className="size-3.5" /> Users
+            <UserCheck className="size-3.5" /> All Accounts
           </TabsTrigger>
           <TabsTrigger value="disputes" className="gap-1.5">
             <Gavel className="size-3.5" /> Disputes
@@ -115,6 +160,21 @@ export default function AdminConsolePage() {
             <History className="size-3.5" /> Audit trail
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="specialists">
+          <SpecialistsGridTab />
+        </TabsContent>
+        <TabsContent value="tasks">
+          <TasksDispatchGridTab />
+        </TabsContent>
+        <TabsContent value="verifications">
+          <SecurityVerificationsGridTab />
+        </TabsContent>
+        <TabsContent value="payments">
+          <PaymentLedgerGridTab />
+        </TabsContent>
+        <TabsContent value="assessments">
+          <SkillAssessmentsGridTab />
+        </TabsContent>
         <TabsContent value="users">
           <UsersTab />
         </TabsContent>

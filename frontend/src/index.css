@@ -1,27 +1,31 @@
+@import "ag-grid-community/styles/ag-grid.css";
+@import "ag-grid-community/styles/ag-theme-quartz.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 214 25% 97%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
+  :root,
+  .dark {
+    --background: 220 43% 6%;
+    --foreground: 210 40% 96%;
+    --card: 220 38% 9.5%;
+    --card-foreground: 210 40% 96%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 214 20% 94%;
-    --secondary-foreground: 222 30% 20%;
-    --muted: 214 20% 95%;
-    --muted-foreground: 215 16% 42%;
-    --accent: 214 90% 96%;
-    --accent-foreground: 221 70% 35%;
-    --destructive: 0 72% 48%;
+    --secondary: 218 32% 14%;
+    --secondary-foreground: 210 35% 92%;
+    --muted: 219 34% 12%;
+    --muted-foreground: 215 18% 66%;
+    --accent: 217 45% 16%;
+    --accent-foreground: 213 94% 78%;
+    --destructive: 0 72% 54%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 20% 88%;
-    --input: 214 20% 86%;
-    --ring: 221 83% 53%;
-    --radius: 0.65rem;
+    --border: 217 28% 17%;
+    --input: 217 28% 19%;
+    --ring: 217 91% 60%;
+    --radius: 0.5rem;
   }
 
   * {
@@ -30,15 +34,25 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    color-scheme: dark;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    @apply bg-background text-foreground font-sans antialiased;
+    letter-spacing: 0.005em;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: "Plus Jakarta Sans", "Public Sans", ui-sans-serif, system-ui, sans-serif;
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.16);
+    background: hsl(var(--primary) / 0.25);
+    color: hsl(var(--foreground));
   }
 
   :focus-visible {
@@ -48,11 +62,38 @@
 }
 
 @layer components {
+  .ag-theme-quartz.ttp-ag-grid {
+    --ag-background-color: hsl(220 38% 9.5%);
+    --ag-foreground-color: hsl(210 40% 96%);
+    --ag-header-background-color: hsl(219 34% 12%);
+    --ag-header-foreground-color: hsl(215 18% 68%);
+    --ag-border-color: hsl(217 28% 17%);
+    --ag-row-border-color: hsl(217 28% 14%);
+    --ag-row-hover-color: hsl(218 32% 14%);
+    --ag-selected-row-background-color: hsl(217 45% 16%);
+    --ag-input-focus-border-color: hsl(217 91% 60%);
+    --ag-control-panel-background-color: hsl(220 38% 9.5%);
+    --ag-subtle-text-color: hsl(215 18% 66%);
+    --ag-font-family: inherit;
+    --ag-font-size: 12px;
+    --ag-header-height: 40px;
+    --ag-row-height: 44px;
+    --ag-wrapper-border-radius: 0.5rem;
+    color-scheme: dark;
+  }
+
   .surface-grid {
     background-image:
-      linear-gradient(to right, hsl(var(--border) / 0.55) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(var(--border) / 0.55) 1px, transparent 1px);
-    background-size: 32px 32px;
+      linear-gradient(to right, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .surface-grid-dark {
+    background-image:
+      linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    background-size: 40px 40px;
   }
 
   .text-balance {
@@ -60,10 +101,10 @@
   }
 
   .prose-docs h2 {
-    @apply mt-10 mb-3 text-xl font-semibold tracking-tight;
+    @apply mt-10 mb-3 text-xl font-semibold tracking-tight text-foreground;
   }
   .prose-docs h3 {
-    @apply mt-6 mb-2 text-base font-semibold;
+    @apply mb-2 mt-6 text-base font-semibold text-foreground;
   }
   .prose-docs p {
     @apply mb-3 text-sm leading-6 text-muted-foreground;
@@ -75,7 +116,7 @@
     @apply mb-4 list-decimal space-y-1 pl-5 text-sm leading-6 text-muted-foreground;
   }
   .prose-docs code {
-    @apply rounded bg-muted px-1 py-0.5 font-mono text-[0.8em] text-foreground;
+    @apply rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.8em] text-foreground;
   }
   .prose-docs a {
     @apply text-primary underline underline-offset-2;
@@ -86,5 +127,20 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

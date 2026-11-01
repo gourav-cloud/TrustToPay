@@ -66,21 +66,21 @@ export function StatCard({
 }) {
   const toneClass = {
     neutral: "text-foreground",
-    info: "text-blue-700",
-    success: "text-emerald-700",
-    warning: "text-amber-700",
-    danger: "text-red-700",
+    info: "text-blue-400",
+    success: "text-emerald-400",
+    warning: "text-amber-400",
+    danger: "text-red-400",
   }[tone];
 
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-          <p className={cn("text-2xl font-semibold tabular-nums tracking-tight", toneClass)}>{value}</p>
+          <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+          <p className={cn("font-mono text-2xl font-semibold tabular-nums tracking-tight", toneClass)}>{value}</p>
           {hint ? <p className="text-xs leading-5 text-muted-foreground">{hint}</p> : null}
         </div>
-        {icon ? <div className="rounded-md bg-muted p-2 text-muted-foreground">{icon}</div> : null}
+        {icon ? <div className="rounded-md border border-border bg-secondary/70 p-2 text-muted-foreground">{icon}</div> : null}
       </div>
     </Card>
   );

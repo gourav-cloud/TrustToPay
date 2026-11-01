@@ -7,7 +7,7 @@ import {
   Bot,
   ChevronDown,
   CreditCard,
-  FlaskConical,
+  ExternalLink,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -23,7 +23,6 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Brand } from "@/components/layout/public-layout";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { humanize, initials, timeAgo } from "@/lib/format";
 
@@ -33,13 +32,15 @@ function navFor(role: string | undefined): { primary: NavItem[]; secondary: NavI
   if (role === "ADMIN") {
     return {
       primary: [
-        { to: "/app/admin", label: "Admin console", icon: ShieldCheck },
-        { to: "/app/tasks", label: "All review tasks", icon: LayoutDashboard },
-        { to: "/app/payments", label: "Payments & ledger", icon: Wallet },
+        { to: "/app", label: "Overview", icon: LayoutDashboard, end: true },
+        { to: "/app/admin", label: "Admin Console", icon: ShieldCheck },
+        { to: "/app/tasks", label: "All Tasks", icon: Search },
+        { to: "/app/payments", label: "Payment Ledger", icon: Wallet },
       ],
       secondary: [
+        { to: "/app/profile", label: "Profile & Settings", icon: UserRound },
         { to: "/app/integrations", label: "Integrations", icon: Plug },
-        { to: "/app/docs", label: "Docs & setup", icon: BookOpen },
+        { to: "/app/docs", label: "Documentation", icon: BookOpen },
       ],
     };
   }
@@ -47,28 +48,28 @@ function navFor(role: string | undefined): { primary: NavItem[]; secondary: NavI
     return {
       primary: [
         { to: "/app", label: "Overview", icon: LayoutDashboard, end: true },
-        { to: "/app/marketplace", label: "Marketplace", icon: Store },
-        { to: "/app/reviews", label: "My reviews", icon: Bot },
-        { to: "/app/earnings", label: "Earnings", icon: Wallet },
+        { to: "/app/marketplace", label: "Available Offers", icon: Store },
+        { to: "/app/reviews", label: "Active Tasks", icon: Bot },
+        { to: "/app/earnings", label: "Earnings & Payouts", icon: Wallet },
       ],
       secondary: [
-        { to: "/app/profile", label: "Reviewer profile", icon: UserRound },
+        { to: "/app/profile", label: "Skills & Profile", icon: UserRound },
         { to: "/app/integrations", label: "Integrations", icon: Plug },
-        { to: "/app/docs", label: "Docs & setup", icon: BookOpen },
+        { to: "/app/docs", label: "Documentation", icon: BookOpen },
       ],
     };
   }
   return {
     primary: [
       { to: "/app", label: "Overview", icon: LayoutDashboard, end: true },
-      { to: "/app/workspace", label: "Agent workspace", icon: Bot },
-      { to: "/app/requests", label: "My requests", icon: Search },
+      { to: "/app/workspace", label: "Agent Workspace", icon: Bot },
+      { to: "/app/requests", label: "My Requests", icon: Search },
       { to: "/app/payments", label: "Payments", icon: CreditCard },
     ],
     secondary: [
-      { to: "/app/profile", label: "Profile", icon: UserRound },
+      { to: "/app/profile", label: "Profile & API Keys", icon: UserRound },
       { to: "/app/integrations", label: "Integrations", icon: Plug },
-      { to: "/app/docs", label: "Docs & setup", icon: BookOpen },
+      { to: "/app/docs", label: "Documentation", icon: BookOpen },
     ],
   };
 }
@@ -103,7 +104,7 @@ function NotificationBell() {
       >
         <Bell className="size-4" />
         {unread > 0 ? (
-          <span className="absolute right-2 top-2 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-semibold text-white">
+          <span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-primary font-mono text-[9px] font-semibold text-white">
             {unread > 9 ? "9+" : unread}
           </span>
         ) : null}
@@ -116,12 +117,12 @@ function NotificationBell() {
             className="fixed inset-0 z-40 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-11 z-50 w-[22rem] rounded-lg border border-border bg-card shadow-xl">
+          <div className="absolute right-0 top-11 z-50 w-[22rem] rounded-lg border border-border bg-card shadow-2xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <p className="text-sm font-semibold">Notifications</p>
+              <p className="font-display text-sm font-semibold text-foreground">Notifications</p>
               <button
                 type="button"
-                className="text-xs font-medium text-primary disabled:opacity-50"
+                className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
                 disabled={unread === 0 || markAll.isPending}
                 onClick={() => markAll.mutate()}
               >
@@ -132,27 +133,40 @@ function NotificationBell() {
               {!data || data.items.length === 0 ? (
                 <p className="px-4 py-8 text-center text-xs text-muted-foreground">No notifications yet.</p>
               ) : (
-                data.items.slice(0, 10).map((notification) => (
-                  <Link
-                    key={notification.id}
-                    to={notification.link ?? "#"}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "block border-b border-border/60 px-4 py-3 transition-colors last:border-0 hover:bg-muted/60",
-                      !notification.readAt && "bg-blue-50/40",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs font-semibold">{notification.title}</p>
-                      <time className="shrink-0 text-[10px] text-muted-foreground">
-                        {timeAgo(notification.createdAt)}
-                      </time>
+                data.items.slice(0, 10).map((notification) => {
+                  const itemClasses = cn(
+                    "block border-b border-border/60 px-4 py-3 transition-colors last:border-0 hover:bg-secondary/60",
+                    !notification.readAt && "bg-primary/5",
+                  );
+                  const content = (
+                    <>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-semibold text-foreground">{notification.title}</p>
+                        <time className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                          {timeAgo(notification.createdAt)}
+                        </time>
+                      </div>
+                      <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                        {notification.body}
+                      </p>
+                    </>
+                  );
+
+                  return notification.link ? (
+                    <Link
+                      key={notification.id}
+                      to={notification.link}
+                      onClick={() => setOpen(false)}
+                      className={itemClasses}
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    <div key={notification.id} className={itemClasses}>
+                      {content}
                     </div>
-                    <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                      {notification.body}
-                    </p>
-                  </Link>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -178,23 +192,30 @@ export function AppShell() {
   const nav = useMemo(() => navFor(user?.role), [user?.role]);
 
   async function handleLogout() {
+    setMenuOpen(false);
     await logout();
     navigate("/login");
   }
 
   const mode = integrations.data?.paypal.paymentsMode;
+  const roleLabel =
+    user?.role === "ADMIN"
+      ? "Administrator"
+      : user?.role === "REVIEWER"
+        ? "Verified Specialist"
+        : "Requester / Agent Operator";
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="min-h-dvh bg-background text-foreground">
       {/* Mobile top bar */}
       <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card px-4 lg:hidden">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Button variant="ghost" size="icon" aria-label="Open navigation" onClick={() => setMobileOpen(true)}>
             <Menu className="size-4" />
           </Button>
           <Brand />
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <NotificationBell />
         </div>
       </div>
@@ -203,11 +224,11 @@ export function AppShell() {
         {/* Sidebar */}
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-card transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0",
+            "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-[#0A0F1A] transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0",
             mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           )}
         >
-          <div className="flex h-16 items-center justify-between px-5">
+          <div className="flex h-16 items-center justify-between border-b border-border/70 px-5">
             <Brand />
             <Button
               variant="ghost"
@@ -220,18 +241,14 @@ export function AppShell() {
             </Button>
           </div>
 
-          <div className="px-4 pb-3">
-            <div className="rounded-md border border-border bg-muted/50 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Workspace
-              </p>
-              <p className="mt-0.5 truncate text-xs font-medium">
-                {user?.role === "ADMIN" ? "Administration" : user?.role === "REVIEWER" ? "Reviewer" : "AI agent operator"}
-              </p>
+          <div className="px-4 pt-4 pb-2">
+            <div className="rounded-md border border-border bg-secondary/40 px-3 py-2.5">
+              <p className="text-[11px] font-medium text-muted-foreground">Active Workspace</p>
+              <p className="mt-0.5 truncate font-display text-xs font-semibold text-foreground">{roleLabel}</p>
             </div>
           </div>
 
-          <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4 scrollbar-thin" aria-label="Main">
+          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3 scrollbar-thin" aria-label="Main">
             {nav.primary.map((item) => {
               const Icon = item.icon;
               return (
@@ -242,22 +259,22 @@ export function AppShell() {
                   onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors",
                       isActive || (item.to === "/app/admin" && location.pathname.startsWith("/app/admin"))
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        ? "bg-primary/15 text-primary"
+                        : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
                     )
                   }
                 >
-                  <Icon className="size-4" aria-hidden />
-                  {item.label}
+                  <Icon className="size-4 shrink-0" aria-hidden />
+                  <span>{item.label}</span>
                 </NavLink>
               );
             })}
 
-            <div className="pt-4">
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                System
+            <div className="pt-5">
+              <p className="px-3 pb-1.5 text-[11px] font-medium text-muted-foreground">
+                Platform
               </p>
               {nav.secondary.map((item) => {
                 const Icon = item.icon;
@@ -268,48 +285,49 @@ export function AppShell() {
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors",
                         isActive
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                          ? "bg-primary/15 text-primary"
+                          : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
                       )
                     }
                   >
-                    <Icon className="size-4" aria-hidden />
-                    {item.label}
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <span>{item.label}</span>
                   </NavLink>
                 );
               })}
             </div>
           </nav>
 
-          <div className="border-t border-border p-3">
-            <div className="rounded-md border border-border bg-background px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Payment mode
-                </p>
-                {mode === "SIMULATED" ? (
-                  <Badge tone="warning" dot>
-                    Simulated
-                  </Badge>
-                ) : mode === "SANDBOX" ? (
-                  <Badge tone="info" dot>
-                    Sandbox
-                  </Badge>
-                ) : null}
+          <div className="space-y-2.5 border-t border-border/70 p-3">
+            <div className="rounded-md border border-border bg-secondary/30 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-muted-foreground">Payment Environment</span>
+                <span className="font-mono text-[11px] font-semibold text-foreground">
+                  {mode === "SIMULATED" ? "Simulated" : "PayPal Sandbox"}
+                </span>
               </div>
-              <p className="mt-1 flex items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
-                {mode === "SIMULATED" ? (
-                  <>
-                    <FlaskConical className="size-3" /> No PayPal money moves
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="size-3" /> Genuine Sandbox API calls
-                  </>
-                )}
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                {mode === "SIMULATED"
+                  ? "Simulated transactions · No money moves"
+                  : "PayPal Sandbox checkout & payouts"}
               </p>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 lg:hidden">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-foreground">{user?.name}</p>
+                <p className="truncate text-[11px] text-muted-foreground">{user?.email}</p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="shrink-0 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300"
+              >
+                <LogOut className="size-3.5" /> Sign out
+              </Button>
             </div>
           </div>
         </aside>
@@ -318,51 +336,42 @@ export function AppShell() {
           <button
             type="button"
             aria-label="Close navigation overlay"
-            className="fixed inset-0 z-40 bg-slate-950/30 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
             onClick={() => setMobileOpen(false)}
           />
         ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Desktop top bar */}
-          <header className="sticky top-0 z-30 hidden h-14 items-center justify-between border-b border-border bg-card/90 px-6 backdrop-blur lg:flex">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1">
-                <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
-                API connected
-              </span>
+          <header className="sticky top-0 z-30 hidden h-16 items-center justify-between border-b border-border bg-[#080C14]/90 px-6 backdrop-blur lg:flex">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{roleLabel}</span>
+              <span aria-hidden="true">·</span>
               <a
-                href="http://localhost:4000/api-docs"
+                href="/api-docs"
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full border border-border bg-background px-2.5 py-1 hover:text-foreground"
+                className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
               >
-                API docs
+                OpenAPI Reference <ExternalLink className="size-3" />
               </a>
-              {integrations.data?.ai.engine === "demo" ? (
-                <span className="rounded-full border border-border bg-background px-2.5 py-1">
-                  Demo AI mode
-                </span>
-              ) : (
-                <span className="rounded-full border border-border bg-background px-2.5 py-1">
-                  AI: {integrations.data?.ai.provider}
-                </span>
-              )}
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <NotificationBell />
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setMenuOpen((value) => !value)}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                  className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm transition-colors hover:bg-secondary"
                   aria-expanded={menuOpen}
                 >
-                  <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
-                    {initials(user?.name ?? "HF")}
+                  <span className="flex size-6 items-center justify-center rounded bg-primary/15 font-mono text-[11px] font-semibold text-primary">
+                    {initials(user?.name ?? "TP")}
                   </span>
-                  <span className="hidden max-w-32 truncate text-xs font-medium xl:block">{user?.name}</span>
+                  <span className="hidden max-w-36 truncate text-xs font-medium text-foreground xl:block">
+                    {user?.name}
+                  </span>
                   <ChevronDown className="size-3.5 text-muted-foreground" />
                 </button>
                 {menuOpen ? (
@@ -373,32 +382,30 @@ export function AppShell() {
                       className="fixed inset-0 z-40 cursor-default"
                       onClick={() => setMenuOpen(false)}
                     />
-                    <div className="absolute right-0 top-11 z-50 w-56 rounded-lg border border-border bg-card p-1.5 shadow-xl">
-                      <div className="border-b border-border px-2.5 py-2">
-                        <p className="truncate text-xs font-semibold">{user?.name}</p>
+                    <div className="absolute right-0 top-11 z-50 w-60 rounded-lg border border-border bg-card p-1.5 shadow-2xl">
+                      <div className="border-b border-border px-3 py-2.5">
+                        <p className="truncate text-xs font-semibold text-foreground">{user?.name}</p>
                         <p className="truncate text-[11px] text-muted-foreground">{user?.email}</p>
-                        <Badge tone="neutral" className="mt-1.5">
-                          {humanize(user?.role)}
-                        </Badge>
+                        <p className="mt-1 text-[11px] font-medium text-primary">{humanize(user?.role)}</p>
                       </div>
                       <Link
                         to="/app/profile"
                         onClick={() => setMenuOpen(false)}
-                        className="mt-1 flex items-center gap-2 rounded-md px-2.5 py-2 text-xs hover:bg-muted"
+                        className="mt-1 flex items-center gap-2 rounded-md px-3 py-2 text-xs text-foreground hover:bg-secondary"
                       >
-                        <UserRound className="size-3.5" /> Profile settings
+                        <UserRound className="size-3.5 text-muted-foreground" /> Profile &amp; Settings
                       </Link>
                       <Link
                         to="/app/integrations"
                         onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2 rounded-md px-2.5 py-2 text-xs hover:bg-muted"
+                        className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-foreground hover:bg-secondary"
                       >
-                        <Plug className="size-3.5" /> Integrations
+                        <Plug className="size-3.5 text-muted-foreground" /> System Integrations
                       </Link>
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-destructive hover:bg-destructive/5"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10"
                       >
                         <LogOut className="size-3.5" /> Sign out
                       </button>
@@ -415,13 +422,13 @@ export function AppShell() {
             </div>
           </main>
 
-          <footer className="border-t border-border px-6 py-4 text-[11px] text-muted-foreground">
+          <footer className="border-t border-border/70 px-6 py-4 text-xs text-muted-foreground">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
-              <span>TrustToPay · hackathon build · MIT</span>
+              <span>TrustToPay · Human-in-the-Loop Escalation &amp; Settlement</span>
               <span>
                 {mode === "SIMULATED"
-                  ? "Simulated payments — no PayPal money moves."
-                  : "PayPal Sandbox only — no live-money transactions."}
+                  ? "Simulated payment mode — no money moves."
+                  : "PayPal Sandbox mode — no live-money transactions."}
               </span>
             </div>
           </footer>

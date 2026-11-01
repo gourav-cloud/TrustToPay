@@ -92,7 +92,9 @@ function main() {
 
   ensureEnv();
 
-  run("npm", ["install", "--no-audit", "--no-fund"]);
+  if (!fs.existsSync(path.join(root, "node_modules"))) {
+    run("npm", ["install", "--no-audit", "--no-fund"]);
+  }
 
   run("npm", ["--workspace", "backend", "run", "db:generate"]);
 

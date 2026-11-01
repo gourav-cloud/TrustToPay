@@ -89,8 +89,12 @@ describe("display helpers", () => {
 describe("status tones", () => {
   it("maps task statuses to semantic tones", () => {
     expect(taskStatusTone("PAYMENT_PAID")).toBe("success");
+    expect(taskStatusTone("HANDED_OFF")).toBe("success");
     expect(taskStatusTone("PAYMENT_READY")).toBe("info");
+    expect(taskStatusTone("UNDER_VERIFICATION")).toBe("info");
+    expect(taskStatusTone("OFFERED")).toBe("info");
     expect(taskStatusTone("NEEDS_MANUAL_REVIEW")).toBe("warning");
+    expect(taskStatusTone("NEEDS_REVISION")).toBe("danger");
     expect(taskStatusTone("VERIFICATION_REJECTED")).toBe("danger");
     expect(taskStatusTone("PAYMENT_PROCESSING")).toBe("accent");
     expect(taskStatusTone("SOMETHING_NEW")).toBe("neutral");

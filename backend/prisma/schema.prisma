@@ -35,8 +35,27 @@ model User {
   rewardsApproved    Reward[]           @relation("RewardApprovedBy")
   verificationRuns   VerificationRun[]  @relation("ManualVerifier")
   taskEvents         TaskEvent[]
+  agentApiKeys       AgentApiKey[]
+  skillAssessmentAttempts SkillAssessmentAttempt[]
+  verifiedSkillLevels     UserSkillLevel[]
+  taskOffers              TaskOffer[]        @relation("SpecialistOffers")
 
   @@index([role])
+}
+
+model AgentApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  keyHash    String    @unique
+  prefix     String
+  name       String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model UserProfile {
@@ -59,13 +78,93 @@ model ReviewerSkill {
   userId   String
   category String   @default("USB_C_HARDWARE")
   name     String
-  level    Int      @default(3)
+  level    Int      @default(1)
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, name])
   @@index([category])
+}
+
+model Skill {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String   @unique
+  category    String   @default("PROGRAMMING")
+  description String
+  version     String   @default("1.0.0")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stages     AssessmentStage[]
+  userLevels UserSkillLevel[]
+  attempts   SkillAssessmentAttempt[]
+
+  @@index([category])
+}
+
+model AssessmentStage {
+  id                String   @id @default(cuid())
+  skillId           String
+  level             Int      // 1 = Foundation, 2 = Practitioner, 3 = Advanced
+  title             String
+  description       String
+  version           String   @default("1.0.0")
+  passingScore      Int      @default(80)
+  cooldownMinutes   Int      @default(30)
+  maxAttemptsPerDay Int      @default(3)
+  questionsJson     String   @default("[]")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  skill    Skill                    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  attempts SkillAssessmentAttempt[]
+
+  @@unique([skillId, level])
+  @@index([skillId])
+}
+
+model SkillAssessmentAttempt {
+  id            String    @id @default(cuid())
+  userId        String
+  skillId       String
+  stageId       String
+  level         Int
+  version       String    @default("1.0.0")
+  status        String    @default("IN_PROGRESS") // IN_PROGRESS | PASSED | FAILED
+  score         Int       @default(0)
+  answersJson   String    @default("{}")
+  feedbackJson  String    @default("[]")
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  cooldownUntil DateTime?
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill           @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  stage AssessmentStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@index([userId, skillId, level])
+  @@index([stageId])
+}
+
+model UserSkillLevel {
+  id            String   @id @default(cuid())
+  userId        String
+  skillId       String
+  level         Int      // 1 = Foundation, 2 = Practitioner, 3 = Advanced
+  version       String   @default("1.0.0")
+  score         Int      @default(0)
+  lastAttemptId String?
+  verifiedAt    DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([skillId, level])
 }
 
 model AgentSession {
@@ -137,6 +236,8 @@ model ReviewTask {
   category               String    @default("USB_C_COMPATIBILITY")
   acceptanceCriteria     String
   requiredSkillsJson     String    @default("[]")
+  requiredSkillId        String?
+  minimumSkillLevel      Int       @default(1)
   status                 String    @default("AWAITING_FUNDING")
   fundingModel           String    @default("PRE_FUNDED")
   riskLevel              String    @default("STANDARD") // STANDARD | HIGH
@@ -147,24 +248,54 @@ model ReviewTask {
   updatedAt              DateTime  @updatedAt
   fundedAt               DateTime?
   verifiedAt             DateTime?
+  handedOffAt            DateTime?
+  handedOffArtifactSha256 String?
+  callbackUrl            String?
+  callbackSecret         String?
   completedAt            DateTime?
   finalAnswer            String?
+  idempotencyKey         String?
   isSeed                 Boolean   @default(false)
 
-  session        AgentSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  requester      User             @relation("RequesterTasks", fields: [requesterId], references: [id], onDelete: Cascade)
-  assignment     TaskAssignment?
-  submissions    ReviewSubmission[]
+  session          AgentSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  requester        User                 @relation("RequesterTasks", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignment       TaskAssignment?
+  offers           TaskOffer[]
+  submissions      ReviewSubmission[]
+  artifacts        SubmissionArtifact[]
   verificationRuns VerificationRun[]
-  reward         Reward?
-  payments       PaymentTransaction[]
-  events         TaskEvent[]
-  evidence       EvidenceSource[]
-  disputes       Dispute[]
+  reward           Reward?
+  payments         PaymentTransaction[]
+  events           TaskEvent[]
+  evidence         EvidenceSource[]
+  disputes         Dispute[]
 
+  @@unique([requesterId, idempotencyKey])
   @@index([status, createdAt])
   @@index([requesterId])
   @@index([sessionId])
+}
+
+model TaskOffer {
+  id           String    @id @default(cuid())
+  taskId       String
+  specialistId String
+  batchNumber  Int       @default(1)
+  rank         Int       @default(1)
+  score        Float
+  status       String    @default("PENDING") // PENDING | ACCEPTED | DECLINED | EXPIRED
+  reasonsJson  String    @default("{}")
+  expiresAt    DateTime
+  respondedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  task       ReviewTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  specialist User       @relation("SpecialistOffers", fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, specialistId])
+  @@index([taskId, status])
+  @@index([specialistId, status])
 }
 
 model TaskAssignment {
@@ -185,36 +316,68 @@ model ReviewSubmission {
   id              String   @id @default(cuid())
   taskId          String
   reviewerId      String
+  version         Int      @default(1)
+  sha256Digest    String?
   answer          String
   explanation     String
   confidenceScore Int      @default(70) // reviewer self-assessment 0-100, not calibrated
   sourceUrl       String?
   evidenceNotes   String?
-  status          String   @default("SUBMITTED") // SUBMITTED | ACCEPTED | REJECTED
+  status          String   @default("SUBMITTED") // SUBMITTED | ACCEPTED | REJECTED | SUPERSEDED
   isSeed          Boolean  @default(false)
   createdAt       DateTime @default(now())
 
-  task           ReviewTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  reviewer       User            @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  task             ReviewTask          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewer         User                @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  artifact         SubmissionArtifact?
   verificationRuns VerificationRun[]
 
   @@index([taskId, createdAt])
   @@index([reviewerId])
 }
 
+model SubmissionArtifact {
+  id               String    @id @default(cuid())
+  taskId           String
+  submissionId     String    @unique
+  version          Int       @default(1)
+  sha256Digest     String
+  fileManifestJson String    @default("[]")
+  filesJson        String    @default("[]")
+  patchText        String?
+  archiveUrl       String?
+  totalSizeBytes   Int       @default(0)
+  fileCount        Int       @default(0)
+  isQuarantined    Boolean   @default(false)
+  invalidatedAt    DateTime?
+  createdAt        DateTime  @default(now())
+
+  task       ReviewTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  submission ReviewSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, version])
+  @@index([sha256Digest])
+}
+
 model VerificationRun {
-  id                    String   @id @default(cuid())
-  taskId                String
-  submissionId          String
-  status                String   // PASSED | REJECTED | NEEDS_MANUAL_REVIEW
-  decisionReason        String
-  checksPassedJson      String   @default("[]")
-  checksFailedJson      String   @default("[]")
-  evidenceReferencesJson String  @default("[]")
-  requiresAdminReview   Boolean  @default(false)
-  engine                String   @default("AUTOMATED") // AUTOMATED | MANUAL
-  verifierId            String?
-  createdAt             DateTime @default(now())
+  id                     String    @id @default(cuid())
+  taskId                 String
+  submissionId           String
+  artifactVersion        Int?
+  artifactSha256         String?
+  status                 String    // PASSED | REJECTED | NEEDS_MANUAL_REVIEW
+  decisionReason         String
+  checksPassedJson       String    @default("[]")
+  checksFailedJson       String    @default("[]")
+  evidenceReferencesJson String    @default("[]")
+  securityVerdict        String?   // PASS | BLOCK | NEEDS_HUMAN_REVIEW | SAFETY_REVIEW_FAILED
+  securityReviewJson     String?
+  executionSummaryJson   String?
+  requiresAdminReview    Boolean   @default(false)
+  engine                 String    @default("AUTOMATED") // AUTOMATED | MANUAL
+  verifierId             String?
+  invalidatedAt          DateTime?
+  createdAt              DateTime  @default(now())
 
   task       ReviewTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
   submission ReviewSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)

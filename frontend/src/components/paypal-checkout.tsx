@@ -239,7 +239,7 @@ export function PayPalCheckout({
 
           {mode === "SIMULATED" ? (
             <>
-              <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 text-xs leading-5 text-amber-900">
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-5 text-amber-200">
                 Demo approval records a simulated capture with a <code>DEMO-CAPTURE</code> reference. The ledger
                 marks it as simulated. Switch to <code>DEMO_MODE=false</code> with Sandbox credentials for the
                 genuine PayPal flow.

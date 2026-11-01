@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import { prisma } from "./db.js";
 import { config, configIssues } from "./config.js";
-import { authRateLimit, corsMiddleware, globalRateLimit, originCheck, requestSizeGuard, securityHeaders } from "./middleware/security.js";
+import { corsMiddleware, globalRateLimit, originCheck, requestSizeGuard, securityHeaders } from "./middleware/security.js";
 import { attachUser } from "./auth/middleware.js";
 import { errorHandler, notFound } from "./lib/errors.js";
 import authRoutes from "./routes/auth.js";
@@ -18,6 +18,7 @@ import dashboardRoutes from "./routes/dashboards.js";
 import adminRoutes from "./routes/admin.js";
 import userRoutes from "./routes/users.js";
 import integrationRoutes from "./routes/integrations.js";
+import skillRoutes from "./routes/skills.js";
 import { openApiSpec } from "./openapi.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -26,7 +27,7 @@ const frontendDist = path.resolve(here, "../../frontend/dist");
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
-  app.set("trust proxy", 1);
+  app.set("trust proxy", true);
 
   app.use(securityHeaders());
   app.use(corsMiddleware());
@@ -89,9 +90,11 @@ export function createApp() {
   });
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, { customSiteTitle: "TrustToPay API" }));
 
-  app.use("/api/v1/auth", authRateLimit(), authRoutes);
+  app.use("/api/v1/auth", authRoutes);
+  app.use("/api/auth", authRoutes);
   app.use("/api/v1/sessions", sessionRoutes);
   app.use("/api/v1/tasks", taskRoutes);
+  app.use("/api/tasks", taskRoutes);
   app.use("/api/v1/payments", paymentRoutes);
   app.use("/api/v1/paypal", webhookRoutes);
   app.use("/api/v1/dashboards", dashboardRoutes);
@@ -99,6 +102,8 @@ export function createApp() {
   app.use("/api/v1/admin", adminRoutes);
   app.use("/api/v1/users", userRoutes);
   app.use("/api/v1/integrations", integrationRoutes);
+  app.use("/api/v1/skills", skillRoutes);
+  app.use("/api/skills", skillRoutes);
 
   if (fs.existsSync(frontendDist)) {
     app.use(express.static(frontendDist, { index: false, maxAge: "1h" }));

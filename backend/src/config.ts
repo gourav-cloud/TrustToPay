@@ -53,13 +53,13 @@ export const config = {
     return this.demoMode && bool(process.env.DEMO_USERS_ENABLED, true);
   },
   get port(): number {
-    return int(process.env.PORT, 4000);
+    return int(process.env.PORT, 3000);
   },
   get frontendUrl(): string {
-    return (process.env.FRONTEND_URL ?? "http://localhost:5173").replace(/\/$/, "");
+    return (process.env.FRONTEND_URL ?? "http://localhost:3000").replace(/\/$/, "");
   },
   get apiBaseUrl(): string {
-    return (process.env.API_BASE_URL ?? "http://localhost:4000").replace(/\/$/, "");
+    return (process.env.API_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
   },
   get databaseUrl(): string {
     return process.env.DATABASE_URL || "file:./dev.db";
@@ -107,6 +107,24 @@ export const config = {
     if (!Number.isFinite(value) || value <= 0 || value > 1) return 0.75;
     return value;
   },
+  get geminiApiKey(): string {
+    return (process.env.GEMINI_API_KEY ?? "").trim();
+  },
+  get geminiModel(): string {
+    return (process.env.GEMINI_MODEL ?? "gemini-3.8-flash").trim() || "gemini-3.8-flash";
+  },
+  get geminiConfigured(): boolean {
+    return this.geminiApiKey.length > 0;
+  },
+  get codeReviewEnabled(): boolean {
+    return bool(process.env.CODE_REVIEW_ENABLED, true);
+  },
+  get codeReviewFailClosed(): boolean {
+    return bool(process.env.CODE_REVIEW_FAIL_CLOSED, true);
+  },
+  get codeReviewTimeoutMs(): number {
+    return Math.max(100, int(process.env.CODE_REVIEW_TIMEOUT_MS, 30_000));
+  },
   get paypalEnv(): string {
     return (process.env.PAYPAL_ENV ?? "sandbox").toLowerCase();
   },
@@ -149,6 +167,33 @@ export const config = {
   },
   get supportedCurrencies(): string[] {
     return ["USD"];
+  },
+  get elasticEnabled(): boolean {
+    return bool(process.env.ELASTIC_ENABLED, false);
+  },
+  get elasticsearchUrl(): string {
+    return (process.env.ELASTICSEARCH_URL ?? "").trim().replace(/\/$/, "");
+  },
+  get elasticsearchApiKey(): string {
+    return (process.env.ELASTICSEARCH_API_KEY ?? "").trim();
+  },
+  get elasticIndexSpecialists(): string {
+    return (process.env.ELASTIC_INDEX_SPECIALISTS ?? "trusttopay-specialists-v1").trim() || "trusttopay-specialists-v1";
+  },
+  get elasticTimeoutMs(): number {
+    return Math.max(50, int(process.env.ELASTIC_TIMEOUT_MS, 2500));
+  },
+  get elasticConfigured(): boolean {
+    return this.elasticEnabled && this.elasticsearchUrl.length > 0 && this.elasticsearchApiKey.length > 0;
+  },
+  get jinaApiKey(): string {
+    return (process.env.JINA_API_KEY ?? "").trim();
+  },
+  get jinaEmbeddingModel(): string {
+    return (process.env.JINA_EMBEDDING_MODEL ?? "jina-embeddings-v3").trim() || "jina-embeddings-v3";
+  },
+  get jinaConfigured(): boolean {
+    return this.jinaApiKey.length > 0 && this.jinaEmbeddingModel.length > 0;
   },
 };
 
@@ -250,6 +295,16 @@ export function configIssues(): ConfigIssue[] {
       level: "error",
       code: "CURRENCY_UNSUPPORTED",
       message: `PAYPAL_CURRENCY=${config.paypalCurrency} is not enabled by this build (supported: ${config.supportedCurrencies.join(", ")}).`,
+    });
+  }
+
+  if (config.elasticEnabled && !config.elasticConfigured) {
+    issues.push({
+      level: "warning",
+      code: "ELASTIC_NOT_CONFIGURED",
+      message:
+        "ELASTIC_ENABLED=true but ELASTICSEARCH_URL and/or ELASTICSEARCH_API_KEY are missing. Specialist discovery will gracefully fall back to the relational database.",
+      hint: "Set ELASTICSEARCH_URL and ELASTICSEARCH_API_KEY on the server, or set ELASTIC_ENABLED=false.",
     });
   }
 

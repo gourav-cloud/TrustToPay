@@ -283,6 +283,7 @@ router.post(
 const RESUME_ALLOWED = new Set([
   "VERIFIED",
   "PAYMENT_READY",
+  "HANDED_OFF",
   "PAYMENT_PAID",
   "PAYOUT_FAILED",
   "ORIGINAL_TASK_RESUMED",

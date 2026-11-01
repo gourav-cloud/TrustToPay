@@ -228,7 +228,7 @@ export default function EarningsPage() {
         </div>
 
         <aside className="space-y-4">
-          <Card className={profileReady ? "border-emerald-200" : "border-amber-200"}>
+          <Card className={profileReady ? "border-emerald-500/30" : "border-amber-500/30"}>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <BadgeCheck className="size-4 text-primary" /> Payout profile

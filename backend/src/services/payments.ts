@@ -13,9 +13,21 @@ export type PaymentActor = { id: string; role: string };
 
 const PAYOUT_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export type PayoutAvailability = "DEMO_SIMULATED" | "PAYOUT_UNAVAILABLE" | "SANDBOX_ENABLED";
+
+export function resolvePayoutAvailability(): PayoutAvailability {
+  if (config.paymentsMode === "SIMULATED") return "DEMO_SIMULATED";
+  if (config.paypalConfigured && config.paypalPayoutsEnabled) return "SANDBOX_ENABLED";
+  return "PAYOUT_UNAVAILABLE";
+}
+
+export const INDIA_PAYOUT_CONSTRAINT_NOTE =
+  "PayPal Sandbox Checkout (Orders v2) works with Indian merchant accounts, but PayPal Payouts requires separate regional approval. When PAYPAL_PAYOUTS_ENABLED=false, payouts are marked PAYOUT_UNAVAILABLE or can be demonstrated with DEMO_MODE=true (DEMO_SIMULATED).";
+
 export type PaymentView = Omit<PaymentTransaction, "safePayloadJson"> & {
   isSimulated: boolean;
   amountDisplay: string;
+  payoutAvailability: PayoutAvailability;
 };
 
 export function serializePayment(transaction: PaymentTransaction): PaymentView {
@@ -24,10 +36,17 @@ export function serializePayment(transaction: PaymentTransaction): PaymentView {
     ...rest,
     isSimulated: transaction.mode === "SIMULATED",
     amountDisplay: formatMinorUnits(transaction.amountMinor, transaction.currency),
+    payoutAvailability:
+      transaction.mode === "SIMULATED"
+        ? "DEMO_SIMULATED"
+        : config.paypalPayoutsEnabled
+          ? "SANDBOX_ENABLED"
+          : "PAYOUT_UNAVAILABLE",
   };
 }
 
 export function paymentModeSummary() {
+  const payoutAvailability = resolvePayoutAvailability();
   return {
     mode: config.paymentsMode,
     simulated: config.paymentsMode === "SIMULATED",
@@ -38,6 +57,8 @@ export function paymentModeSummary() {
         : config.paypalPayoutsEnabled
           ? "PayPalSandboxPayoutProvider"
           : "Unavailable (PAYPAL_PAYOUTS_ENABLED=false)",
+    payoutAvailability,
+    indiaMerchantConstraintNote: INDIA_PAYOUT_CONSTRAINT_NOTE,
     paypalConfigured: config.paypalConfigured,
     payoutsEnabled: config.paypalPayoutsEnabled,
     currency: config.paypalCurrency,
@@ -543,6 +564,8 @@ export async function captureFundingOrder(actor: PaymentActor, orderId: string, 
   };
 }
 
+const PAYABLE_TASK_STATUSES = ["PAYMENT_READY", "HANDED_OFF", "ORIGINAL_TASK_RESUMED", "COMPLETED"];
+
 async function startPayoutState(taskId: string, actorId: string): Promise<void> {
   await prisma.$transaction(async (db) => {
     const task = await db.reviewTask.findUnique({ where: { id: taskId }, include: { reward: true } });
@@ -559,6 +582,13 @@ async function startPayoutState(taskId: string, actorId: string): Promise<void> 
         message: "Reviewer payout retry started after reconciliation.",
         actorId,
       });
+    } else if (task.status === "HANDED_OFF" || task.status === "ORIGINAL_TASK_RESUMED" || task.status === "COMPLETED") {
+      await recordTaskEvent(db, {
+        taskId,
+        type: "PAYMENT_PROCESSING",
+        message: "Reviewer payout started for handed-off task.",
+        actorId,
+      });
     } else {
       throw new AppError(409, "TASK_NOT_PAYABLE", `The task is ${task.status}; a payout cannot start.`);
     }
@@ -573,14 +603,14 @@ export async function releasePayout(actor: PaymentActor, taskId: string, req?: i
   const task = await loadTaskForPayment(taskId);
   taskAccess(actor, task.requesterId);
 
-  if (task.status === "PAYMENT_PAID") {
+  if (task.status === "PAYMENT_PAID" || task.reward?.status === "PAID") {
     const completed = task.payments.find((payment) => payment.type === "PAYOUT" && payment.status === "COMPLETED");
     if (completed) {
       return { transaction: serializePayment(completed), message: "The reviewer reward was already paid." };
     }
   }
 
-  if (task.status === "PAYMENT_PROCESSING") {
+  if (task.status === "PAYMENT_PROCESSING" || task.reward?.status === "PROCESSING") {
     const pending = task.payments.find(
       (payment) => payment.type === "PAYOUT" && ["PENDING", "PROCESSING"].includes(payment.status),
     );
@@ -589,7 +619,7 @@ export async function releasePayout(actor: PaymentActor, taskId: string, req?: i
     }
   }
 
-  if (task.status !== "PAYMENT_READY" && !(allowRetry && task.status === "PAYOUT_FAILED")) {
+  if (!PAYABLE_TASK_STATUSES.includes(task.status) && !(allowRetry && task.status === "PAYOUT_FAILED")) {
     throw new AppError(409, "TASK_NOT_PAYABLE", `The task is ${task.status}; payout requires PAYMENT_READY.`);
   }
 
@@ -848,6 +878,14 @@ export async function finalizePayout(paymentId: string, input: FinalizePayoutInp
         type: "PAYMENT_PAID",
         message: "Reviewer reward paid after reconciliation.",
         actorId: input.actorId ?? null,
+      });
+    } else if (task?.status === "HANDED_OFF" || task?.status === "ORIGINAL_TASK_RESUMED" || task?.status === "COMPLETED") {
+      await recordTaskEvent(db, {
+        taskId: tx.taskId,
+        type: "PAYMENT_PAID",
+        message: "Reviewer reward paid for handed-off task.",
+        actorId: input.actorId ?? null,
+        metadata: { payoutBatchId: updated.payoutBatchId, amountMinor: updated.amountMinor },
       });
     }
 
@@ -1113,11 +1151,12 @@ export async function paymentSummaryForTask(taskId: string) {
     fundingTransaction: funding ? serializePayment(funding) : null,
     payoutTransaction: payout ? serializePayment(payout) : null,
     payoutEligible:
-      task.status === "PAYMENT_READY" &&
+      PAYABLE_TASK_STATUSES.includes(task.status) &&
       task.reward?.status === "AUTHORIZED" &&
       Boolean(task.assignment?.reviewer.profile?.payoutEmail) &&
       Boolean(task.assignment?.reviewer.profile?.payoutConsent),
     payoutsEnabled: config.paypalPayoutsEnabled,
+    payoutAvailability: resolvePayoutAvailability(),
   };
 }
 

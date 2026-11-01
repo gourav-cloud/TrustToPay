@@ -199,7 +199,7 @@ export default function WorkspacePage() {
                       onClick={() => setCategory(value)}
                       aria-pressed={category === value}
                       className={cn(
-                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                        "rounded-md border px-3 py-1 text-xs font-medium transition-colors",
                         category === value
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
@@ -442,7 +442,7 @@ export default function WorkspacePage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
-                <FlaskConical className="size-4 text-amber-600" /> How the demo AI decides
+                <FlaskConical className="size-4 text-amber-400" /> How the demo AI decides
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs leading-5 text-muted-foreground">
